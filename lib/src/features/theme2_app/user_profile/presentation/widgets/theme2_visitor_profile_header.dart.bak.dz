@@ -1,0 +1,418 @@
+import 'package:general/src/core/index.dart';
+import 'package:general/src/core/widgets/bottom_dialog.dart';
+import 'package:general/src/core/widgets/gender_widget.dart';
+import 'package:general/src/core/widgets/level_container.dart';
+import 'package:general/src/features/auth/domain/entities/user_entity.dart';
+import 'package:general/src/core/utils/relative_time.dart';
+import 'package:general/src/features/messages/presentation/messages/blocs/user_online/user_online_bloc.dart';
+import 'package:general/src/features/cp/presentation/cp_store/bloc/cp_profile_bloc/cp_profile_bloc.dart';
+import 'package:general/src/features/profile/presentation/profile/bloc/bloc_user_badges/get_user_badges_bloc.dart';
+import 'package:general/src/features/profile/presentation/profile/bloc/bloc_user_badges/get_user_badges_state.dart';
+import 'package:general/src/features/profile/presentation/profile/view/page/user_profile/widget/user_images_carousel.dart';
+import 'package:general/src/features/theme2_app/user_profile/presentation/widgets/theme2_live_badge.dart';
+
+/// Header: Cover photo + Avatar with frame + Name + badges + ID + tags
+class Theme2VisitorProfileHeader extends StatelessWidget {
+  final UserEntity? user;
+  final bool isMyProfile;
+  final GetUserBadgesBloc getUserBadgesBloc;
+  final CpProfileBloc cpProfileBloc;
+
+  /// Page-scoped presence bloc (NOT the shared di singleton). The profile owns
+  /// its own instance so opening a peer's profile from a chat does not repoint
+  /// or stop the chat header's presence watch.
+  final UserOnlineBloc userOnlineBloc;
+
+  const Theme2VisitorProfileHeader({
+    super.key,
+    required this.user,
+    required this.isMyProfile,
+    required this.getUserBadgesBloc,
+    required this.cpProfileBloc,
+    required this.userOnlineBloc,
+  });
+
+  /// "آخر ظهور ..." with the same relative format used in the chat header;
+  /// falls back to "غير متصل" when the last-seen is unknown.
+  String _lastSeenLabel(String? iso) {
+    final rel = RelativeTime.fromIso(iso);
+    if (rel == null) return StringManager.offline.tr();
+    return 'آخر ظهور $rel';
+  }
+
+  /// True when the profiled user is currently inside a room with a valid id,
+  /// so the live/تتبع badge should be shown. Hidden on own profile.
+  bool _inRoom(UserEntity? user) {
+    if (isMyProfile) return false;
+    final room = user?.nowRoom;
+    return room != null && (room.id ?? 0) > 0 && (room.isnInRoom ?? false);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: ScreenUtil().screenHeight * 0.38,
+      child: Stack(
+        children: [
+          // Cover photo carousel — allows manual swipe/scroll in areas not
+          // covered by the overlay (top half). The overlay widgets below have
+          // their own GestureDetectors, so taps on avatar/badges/buttons work
+          // correctly while the exposed carousel region remains swipeable.
+          Positioned.fill(
+            child: UserImagesCarousel(
+              userData: user ?? const UserEntity(),
+            ),
+          ),
+          // Bottom scrim: the info overlay (white name/ID/badges) is unreadable
+          // on light covers without it. Gradient keeps the photo visible while
+          // guaranteeing contrast; IgnorePointer keeps the carousel swipeable.
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    stops: const [0.4, 1.0],
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withValues(alpha: 0.6),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // User info overlay
+          Positioned(
+            bottom: 10.h,
+            left: 16.w,
+            right: 16.w,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Avatar + Chat button row
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    // Avatar with frame + CP partner
+                    BlocBuilder<CpProfileBloc, CpProfileStates>(
+                      bloc: cpProfileBloc,
+                      buildWhen: (prev, curr) =>
+                          prev.reqStates != curr.reqStates ||
+                          prev.data?.mainCp != curr.data?.mainCp,
+                      builder: (context, cpState) {
+                        final cpUser = cpState.data?.mainCp?.user;
+                        final hasCp =
+                            cpUser != null && (cpUser.image ?? '').isNotEmpty;
+
+                        return SizedBox(
+                          width: hasCp ? 130.w : 100.w,
+                          height: 100.h,
+                          child: Stack(
+                            clipBehavior: Clip.none,
+                            children: [
+                              // Main avatar
+                              Positioned(
+                                left: 0,
+                                bottom: 0,
+                                child: GestureDetector(
+                                  onTap: () {
+                                    bottomDailog(
+                                      context: context,
+                                      widget: Scaffold(
+                                        backgroundColor: ColorManager.black,
+                                        appBar: const AppBarWidget(
+                                          iconColor: Colors.grey,
+                                          backgroundColor: ColorManager.black,
+                                          title: '',
+                                        ),
+                                        body: InteractiveViewer(
+                                          child: Container(
+                                            height: MediaQuery.sizeOf(context)
+                                                .height,
+                                            width: MediaQuery.sizeOf(context)
+                                                .width,
+                                            padding: EdgeInsets.all(10.r),
+                                            child: ImageViewWidget(
+                                              url: EndPoints.getImage(
+                                                  user?.profile?.image ?? ''),
+                                              height: MediaQuery.sizeOf(context)
+                                                  .height,
+                                              width: MediaQuery.sizeOf(context)
+                                                  .width,
+                                              boxFit: BoxFit.contain,
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                  child: (user?.frame ?? '') != ''
+                                      ? UserImage(
+                                          image: user?.profile?.image ?? '',
+                                          displayName: user?.name,
+                                          imageSize: 50.h,
+                                          frameSize: 100.w,
+                                          frameType: user?.frameType ?? '',
+                                          frame: user?.frame ?? '',
+                                          boxFit: BoxFit.cover,
+                                          borderRadius: 60.radius,
+                                        )
+                                      : CircleAvatar(
+                                          radius: 37.r,
+                                          backgroundColor:
+                                              ColorManager.surfaceCardColor,
+                                          child: UserImage(
+                                            image: user?.profile?.image ?? '',
+                                            displayName: user?.name,
+                                            imageSize: 70.h,
+                                            frameSize: 80.r,
+                                            frameType: user?.frameType ?? '',
+                                            frame: user?.frame ?? '',
+                                            boxFit: BoxFit.cover,
+                                            borderRadius: 60.radius,
+                                          ),
+                                        ),
+                                ),
+                              ),
+                              // CP partner avatar (smaller, bottom-right)
+                              if (hasCp)
+                                Positioned(
+                                  right: 0,
+                                  bottom: 0,
+                                  child: GestureDetector(
+                                    onTap: () {
+                                      Methods().userProfileNavigator(
+                                        context: context,
+                                        userId: '${cpUser.id}',
+                                      );
+                                    },
+                                    child: (cpUser.frame ?? '').isNotEmpty
+                                        ? UserImage(
+                                            image: cpUser.image ?? '',
+                                            displayName: cpUser.name,
+                                            imageSize: 35.h,
+                                            frameSize: 70.w,
+                                            frameType: '',
+                                            frame: cpUser.frame ?? '',
+                                            boxFit: BoxFit.cover,
+                                            borderRadius: 60.radius,
+                                          )
+                                        : CircleAvatar(
+                                            radius: 26.r,
+                                            backgroundColor:
+                                                ColorManager.surfaceCardColor,
+                                            child: UserImage(
+                                              image: cpUser.image ?? '',
+                                              displayName: cpUser.name,
+                                              imageSize: 48.h,
+                                              frameSize: 55.r,
+                                              frameType: '',
+                                              frame: cpUser.frame ?? '',
+                                              boxFit: BoxFit.cover,
+                                              borderRadius: 60.radius,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                              // Animated "تتبع"/live badge — only when the
+                              // profiled user is currently inside a room. Taps
+                              // enter that room via the canonical room-enter
+                              // flow. Positioned at the top of the avatar (RTL
+                              // safe via PositionedDirectional).
+                              if (_inRoom(user))
+                                PositionedDirectional(
+                                  top: -6.h,
+                                  start: 0,
+                                  child: Theme2LiveBadge(
+                                    nowRoom: user!.nowRoom!,
+                                  ),
+                                ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                    const Spacer(),
+                  ],
+                ),
+                8.hBox,
+                // Name + Gender
+                Row(
+                  children: [
+                    Flexible(
+                      child: Text(
+                        user?.name ?? '',
+                        style: TextStyle(
+                          color: ColorManager.onDark,
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    6.wBox,
+                    GenderWidget(
+                      age: user?.profile?.age ?? 0,
+                      gender: user?.profile?.gender ?? 0,
+                    ),
+                    4.wBox,
+                    // ID + Country
+                    Row(
+                      children: [
+                        // Country flag
+                        if (user?.country?.photo != null)
+                          Padding(
+                            padding: EdgeInsets.only(right: 6.w),
+                            child: ImageViewWidget(
+                              url: EndPoints.getImage(
+                                  '${user?.country?.photo}'),
+                              height: 14,
+                              width: 20,
+                              boxFit: BoxFit.cover,
+                            ),
+                          ),
+                        // ID badge
+                        Container(
+                          padding: EdgeInsets.symmetric(
+                              horizontal: 8.w, vertical: 4.h),
+                          decoration: BoxDecoration(
+                            color: ColorManager.countryYellow
+                                .withValues(alpha: 0.2),
+                            borderRadius: BorderRadius.circular(20.r),
+                          ),
+                          child: Row(
+                            children: [
+                              const Text("ID: "),
+                              Text(
+                                '${user?.uuid ?? user?.id ?? ''}',
+                                style: TextStyle(
+                                  color: ColorManager.agencyYellow,
+                                  fontSize: 10.sp,
+                                ),
+                              ),
+                              4.wBox,
+                              GestureDetector(
+                                onTap: () {
+                                  Clipboard.setData(
+                                    ClipboardData(
+                                        text:
+                                            '${user?.uuid ?? user?.id ?? ''}'),
+                                  );
+                                  Methods.showToast(context,
+                                      message: StringManager
+                                          .theTextHasBeenCopied
+                                          .tr());
+                                },
+                                child: Icon(Icons.copy,
+                                    size: 12.sp,
+                                    color: ColorManager.white
+                                        .withValues(alpha: 0.5)),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+                // Presence ("متصل الآن" / "آخر ظهور ...") — visited profiles only,
+                // hidden when the user enabled last-active privacy. Bound to the
+                // page-scoped UserOnlineBloc (unified GET /user-status/{id} source)
+                // so it stays live exactly like the chat header, without touching
+                // the shared singleton the chat screen uses.
+                if (!isMyProfile && !(user?.lastActiveHidden ?? false)) ...[
+                  4.hBox,
+                  BlocBuilder<UserOnlineBloc, UserOnlineState>(
+                    bloc: userOnlineBloc,
+                    buildWhen: (prev, curr) =>
+                        prev.online != curr.online ||
+                        prev.lastSeen != curr.lastSeen,
+                    builder: (context, state) {
+                      return ListenableBuilder(
+                        listenable: RelativeTimeTicker.instance,
+                        builder: (context, _) {
+                          return Text(
+                            state.online != 0
+                                ? StringManager.online.tr()
+                                : _lastSeenLabel(state.lastSeen),
+                            style: TextStyle(
+                              color: state.online == 0
+                                  ? ColorManager.onDark.withValues(alpha: 0.7)
+                                  : Colors.green.shade300,
+                              fontSize: 11.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                ],
+                6.hBox,
+                // Badges (VIP, Level, User badges)
+                BlocBuilder<GetUserBadgesBloc, GetUserBadgesState>(
+                  bloc: getUserBadgesBloc,
+                  buildWhen: (prev, curr) =>
+                      prev.userBadge?.top != curr.userBadge?.top,
+                  builder: (context, state) {
+                    final badges = state.userBadge?.top ?? [];
+                    return SizedBox(
+                      width: ScreenUtil().screenWidth * 0.75,
+                      child: Wrap(
+                        spacing: 3.w,
+                        runSpacing: 3.h,
+                        children: [
+                          // VIP badge
+                          if (user?.vip?.img1 != null &&
+                              user!.vip!.img1!.isNotEmpty)
+                            ImageViewWidget(
+                              url: user!.vip!.img1!,
+                              width: 35.w,
+                              height: 17.h,
+                              boxFit: BoxFit.fill,
+                              radius: 20,
+                            ),
+                          // Sender level
+                          if (user?.level?.senderImage != null &&
+                              user!.level!.senderImage!.isNotEmpty)
+                            LevelContainer(
+                              image: user!.level!.senderImage!,
+                              boxFit: BoxFit.contain,
+                            ),
+                          // Receiver level
+                          if (user?.level?.receiverImage != null &&
+                              user!.level!.receiverImage!.isNotEmpty)
+                            LevelContainer(
+                              image: user!.level!.receiverImage!,
+                              boxFit: BoxFit.contain,
+                            ),
+                          // Top badges
+                          ...badges.map((b) => b.imageType == "svga"
+                              ? CacheSvgaWidget(
+                                  url: EndPoints.getImage(b.image),
+                                  boxFit: BoxFit.fill,
+                                  height: 22.h,
+                                  width: 60.w,
+                                )
+                              : ImageViewWidget(
+                                  url: EndPoints.getImage(b.image),
+                                  width: 60.w,
+                                  height: 22.h,
+                                  boxFit: BoxFit.fill,
+                                )),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+                4.hBox,
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

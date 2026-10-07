@@ -1,0 +1,198 @@
+import 'package:general/src/core/index.dart';
+import 'package:general/src/core/utils/media_auto_download_prefs.dart';
+
+/// WhatsApp-style media auto-download settings.
+///
+/// Two layers:
+///   - Auto/manual switch: when off, media never downloads automatically — the
+///     user must tap to download (saves data + battery, mirrors WhatsApp).
+///   - Network policy (only relevant when auto is on): always / Wi-Fi only /
+///     network only — lets the user spare their data plan.
+///
+/// Settings persist in SharedPreferences (Hive equivalent) under the keys in
+/// [MediaAutoDownloadPrefs]. The download path consults [MediaAutoDownloadPrefs.shouldAutoDownload]
+/// at runtime, so flipping a switch takes effect instantly without restart.
+class MediaSettingsScreen extends StatefulWidget {
+  const MediaSettingsScreen({super.key});
+
+  @override
+  State<MediaSettingsScreen> createState() => _MediaSettingsScreenState();
+}
+
+class _MediaSettingsScreenState extends State<MediaSettingsScreen> {
+  bool _autoDownload = true;
+  MediaNetworkPolicy _policy = MediaNetworkPolicy.always;
+  bool _loaded = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  Future<void> _load() async {
+    _autoDownload = MediaAutoDownloadPrefs.isAutoDownloadEnabled();
+    _policy = MediaAutoDownloadPrefs.networkPolicy();
+    if (mounted) setState(() => _loaded = true);
+  }
+
+  Future<void> _setAuto(bool v) async {
+    setState(() => _autoDownload = v);
+    await MediaAutoDownloadPrefs.setAutoDownloadEnabled(v);
+  }
+
+  Future<void> _setPolicy(MediaNetworkPolicy p) async {
+    setState(() => _policy = p);
+    await MediaAutoDownloadPrefs.setNetworkPolicy(p);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: ColorManager.scaffoldBg,
+      appBar: AppBarWidget(
+        title: 'إعدادات الوسائط',
+        backgroundColor: ColorManager.scaffoldBg,
+      ),
+      body: !_loaded
+          ? const Center(child: LoadingWidget())
+          : ListView(
+              padding: context.paddingSymmetric(vertical: 12),
+              children: [
+                _sectionHeader('التحميل التلقائي'),
+                _switchTile(
+                  title: 'حفظ الوسائط تلقائياً على الجهاز',
+                  subtitle: _autoDownload
+                      ? 'الصور والمقاطع تتحمّل تلقائياً'
+                      : 'لازم تضغط على الوسائط لتحميلها (يوفّر داتا أكتر)',
+                  value: _autoDownload,
+                  onChanged: _setAuto,
+                ),
+                if (_autoDownload) ...[
+                  16.hBox,
+                  _sectionHeader('متى يتم التحميل التلقائي'),
+                  _radioTile(
+                    title: 'في كل الأحوال',
+                    subtitle: 'Wi-Fi + الشبكة',
+                    value: MediaNetworkPolicy.always,
+                  ),
+                  _radioTile(
+                    title: 'فقط على Wi-Fi',
+                    subtitle: 'يحفظ بيانات الشبكة',
+                    value: MediaNetworkPolicy.wifiOnly,
+                  ),
+                  _radioTile(
+                    title: 'فقط على الشبكة',
+                    subtitle: 'مفيد لو الـ Wi-Fi محدود',
+                    value: MediaNetworkPolicy.mobileOnly,
+                  ),
+                ],
+              ],
+            ),
+    );
+  }
+
+  Widget _sectionHeader(String text) {
+    return Padding(
+      padding: context.paddingOnly(start: 16, end: 16, top: 8, bottom: 6),
+      child: TextWidget(
+        text,
+        isTranslate: false,
+        style: context.bodyMedium.w600.colorExt(ColorManager.textPrimary),
+      ),
+    );
+  }
+
+  Widget _switchTile({
+    required String title,
+    required String subtitle,
+    required bool value,
+    required ValueChanged<bool> onChanged,
+  }) {
+    return Container(
+      margin: context.paddingSymmetric(horizontal: 12, vertical: 4),
+      padding: context.paddingSymmetric(horizontal: 16, vertical: 4),
+      decoration: BoxDecoration(
+        color: ColorManager.textPrimary.withValues(alpha: 0.05),
+        borderRadius: 12.radius,
+      ),
+      child: SwitchListTile.adaptive(
+        contentPadding: EdgeInsets.zero,
+        activeColor: ColorManager.primary,
+        title: TextWidget(
+          title,
+          isTranslate: false,
+          style: context.bodyLarge.w500.colorExt(ColorManager.textPrimary),
+        ),
+        subtitle: TextWidget(
+          subtitle,
+          isTranslate: false,
+          style: context.bodySmall
+              .colorExt(ColorManager.textPrimary.withValues(alpha: 0.6)),
+        ),
+        value: value,
+        onChanged: onChanged,
+      ),
+    );
+  }
+
+  Widget _radioTile({
+    required String title,
+    required String subtitle,
+    required MediaNetworkPolicy value,
+  }) {
+    final selected = _policy == value;
+    return InkWell(
+      onTap: () => _setPolicy(value),
+      child: Container(
+        margin: context.paddingSymmetric(horizontal: 12, vertical: 4),
+        padding: context.paddingSymmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: selected
+              ? ColorManager.primary.withValues(alpha: 0.10)
+              : ColorManager.textPrimary.withValues(alpha: 0.04),
+          borderRadius: 12.radius,
+          border: Border.all(
+            color: selected
+                ? ColorManager.primary
+                : ColorManager.transparent,
+            width: 1,
+          ),
+        ),
+        child: Row(
+          children: [
+            Icon(
+              selected ? Icons.radio_button_checked : Icons.radio_button_off,
+              color: selected
+                  ? ColorManager.primary
+                  : ColorManager.textPrimary.withValues(alpha: 0.6),
+              size: 22.h,
+            ),
+            12.wBox,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  TextWidget(
+                    title,
+                    isTranslate: false,
+                    style: context.bodyLarge
+                        .w500
+                        .colorExt(ColorManager.textPrimary),
+                  ),
+                  TextWidget(
+                    subtitle,
+                    isTranslate: false,
+                    style: context.bodySmall.colorExt(
+                      ColorManager.textPrimary.withValues(alpha: 0.6),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

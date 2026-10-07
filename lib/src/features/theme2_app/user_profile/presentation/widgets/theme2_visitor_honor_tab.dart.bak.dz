@@ -1,0 +1,208 @@
+import 'package:general/src/core/index.dart';
+import 'package:general/src/features/profile/presentation/medals/bloc/badge_bloc/badges_bloc.dart';
+import 'package:general/src/features/profile/presentation/profile/bloc/bloc_badge/user_badges_bloc.dart';
+import 'package:general/src/features/profile/presentation/profile/view/page/user_profile/bloc/get_user_intro_bloc/get_user_intro_bloc.dart';
+import 'package:general/src/features/profile/presentation/profile/view/page/user_profile/bloc/get_user_intro_bloc/get_user_intro_event.dart';
+import 'package:general/src/features/profile/presentation/profile/view/page/user_profile/bloc/get_user_intro_bloc/get_user_intro_state.dart';
+import 'package:general/src/features/profile/presentation/profile/view/page/user_profile/bloc/gift_history_bloc/gift_history_bloc.dart';
+import 'package:general/src/features/profile/presentation/profile/view/page/user_profile/bloc/gift_history_bloc/gift_history_state.dart';
+
+/// تاب شرف - Medals + Gift Wall (Frames) + Titles + Entrance effects
+class Theme2VisitorHonorTab extends StatelessWidget {
+  final UserBadgesBloc userBadgesBloc;
+  final GetBadgesBloc getBadgesBloc;
+  final GetUserIntroBloc getUserIntroBloc;
+  final GiftHistoryBloc giftHistoryBloc;
+  final String userId;
+
+  const Theme2VisitorHonorTab({
+    super.key,
+    required this.userBadgesBloc,
+    required this.getBadgesBloc,
+    required this.getUserIntroBloc,
+    required this.giftHistoryBloc,
+    required this.userId,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      // Nested inside _Theme2GeneralTab's scroll → shrink-wrap and disable its
+      // own scrolling so the parent NestedScrollView owns all vertical scroll.
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      padding: EdgeInsets.symmetric(horizontal: 16.w, vertical: 12.h),
+      children: [
+        // Sent-gifts section (الهدايا المرسلة) — badges removed from profile per
+        // product decision (the feature still exists elsewhere).
+        const _SimpleSectionTitle(title: 'الهدايا المرسلة'),
+        8.hBox,
+        BlocBuilder<GiftHistoryBloc, GiftHistoryState>(
+          bloc: giftHistoryBloc,
+          buildWhen: (prev, curr) => prev.giftModel != curr.giftModel,
+          builder: (context, state) {
+            final gifts = state.giftModel ?? [];
+            if (gifts.isEmpty) {
+              return _EmptySection(label: StringManager.noGifts.tr());
+            }
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 4,
+                crossAxisSpacing: 8.w,
+                mainAxisSpacing: 8.h,
+                childAspectRatio: 1,
+              ),
+              itemCount: gifts.length > 8 ? 8 : gifts.length,
+              itemBuilder: (context, index) {
+                final gift = gifts[index];
+                return Container(
+                  decoration: ColorManager.cardDecoration(
+                    borderRadius: BorderRadius.circular(10.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: ColorManager.grey.withValues(alpha: 0.08),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      ImageViewWidget(
+                        url: gift.data.img,
+                        height: 44.h,
+                        width: 44.h,
+                        boxFit: BoxFit.contain,
+                      ),
+                      if (gift.num.isNotEmpty)
+                        Text('x${gift.num}',
+                            style: TextStyle(
+                                fontSize: 11.sp,
+                                fontWeight: FontWeight.w700,
+                                color: ColorManager.primary)),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
+        20.hBox,
+
+        // Entrance effects section (دخولية)
+        _SimpleSectionTitle(title: StringManager.rideQuantity.tr()),
+        8.hBox,
+        BlocBuilder<GetUserIntroBloc, GetUserIntroState>(
+          bloc: getUserIntroBloc,
+          buildWhen: (prev, curr) =>
+              prev.requestState != curr.requestState ||
+              prev.userIntroModel != curr.userIntroModel,
+          builder: (context, state) {
+            final intros = state.userIntroModel ?? [];
+            if (intros.isEmpty) {
+              return GestureDetector(
+                onTap: () =>
+                    getUserIntroBloc.add(GetUserIntro(id: userId)),
+                child: _EmptySection(label: StringManager.noDataYet.tr()),
+              );
+            }
+            return GridView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 2,
+                crossAxisSpacing: 8.w,
+                mainAxisSpacing: 8.h,
+                childAspectRatio: 2.0,
+              ),
+              itemCount: intros.length,
+              itemBuilder: (context, index) {
+                final intro = intros[index];
+                return Container(
+                  decoration: ColorManager.cardDecoration(
+                    borderRadius: BorderRadius.circular(10.r),
+                    boxShadow: [
+                      BoxShadow(
+                        color: ColorManager.grey.withValues(alpha: 0.08),
+                        blurRadius: 4,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      (intro.image).contains('.svga')
+                          ? CacheSvgaWidget(
+                              url: EndPoints.getImage(intro.image),
+                              boxFit: BoxFit.contain,
+                              height: 60.h,
+                              width: double.infinity,
+                            )
+                          : ImageViewWidget(
+                              url: EndPoints.getImage(intro.image),
+                              height: 60.h,
+                              width: double.infinity,
+                              boxFit: BoxFit.cover,
+                            ),
+                      if (intro.count > 0)
+                        Text('x${intro.count}',
+                            style: TextStyle(
+                                fontSize: 11.sp,
+                                fontWeight: FontWeight.w700,
+                                color: ColorManager.primary)),
+                    ],
+                  ),
+                );
+              },
+            );
+          },
+        ),
+        20.hBox,
+      ],
+    );
+  }
+}
+
+class _SimpleSectionTitle extends StatelessWidget {
+  final String title;
+
+  const _SimpleSectionTitle({required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      title,
+      style: TextStyle(
+        color: ColorManager.textPrimary,
+        fontSize: 16.sp,
+        fontWeight: FontWeight.w700,
+      ),
+    );
+  }
+}
+
+class _EmptySection extends StatelessWidget {
+  final String label;
+
+  const _EmptySection({required this.label});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: 12.h),
+      child: Center(
+        child: Text(
+          label,
+          style: TextStyle(
+            color: ColorManager.secondaryText,
+            fontSize: 13.sp,
+          ),
+        ),
+      ),
+    );
+  }
+}

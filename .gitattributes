@@ -1,0 +1,45 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# White-label identity protection (APP repo)
+#
+# This is the MASTER (meow-live) codebase. Client apps (jo, lumio, kitty, ...)
+# live on their own branches and merge code/feature changes FROM this master.
+# A client's brand IDENTITY must NEVER be overwritten by such a merge.
+#
+# The files listed below are 100% per-client and are kept as the CLIENT's
+# version ("ours") on every merge from master, via a one-line merge driver that
+# must be defined once per clone:
+#
+#     git config merge.ours.driver true
+#
+# tools/merge-from-master.sh configures that automatically and also re-applies
+# the line-level identity that lives inside shared files (applicationId, app
+# label, iOS display name) — those can't use this whole-file mechanism.
+#
+# NOTE: merge=ours only keeps the client's version of files that exist on BOTH
+# sides. New asset files added on master still flow into the client normally
+# (a new feature's new icon is delivered; the client's existing brand art is
+# never clobbered). That is exactly the white-label behaviour we want.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Shell tooling must stay LF (CRLF breaks bash on checkout)
+*.sh text eol=lf
+
+# Firebase project identity (Android google-services + iOS plist + FlutterFire)
+android/app/google-services.json         merge=ours
+ios/Runner/GoogleService-Info.plist      merge=ours
+firebase.json                            merge=ours
+
+# Android launcher icon, splash & background
+android/app/src/main/res/mipmap*/**      merge=ours
+android/app/src/main/res/drawable*/**    merge=ours
+
+# iOS app icon & launch images
+ios/Runner/Assets.xcassets/**            merge=ours
+
+# In-app brand assets (logo, badges, ui icons, ...)
+assets/**/*.png    merge=ours
+assets/**/*.jpg    merge=ours
+assets/**/*.jpeg   merge=ours
+assets/**/*.webp   merge=ours
+assets/**/*.gif    merge=ours
+assets/**/*.svg    merge=ours

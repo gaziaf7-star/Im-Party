@@ -1,0 +1,177 @@
+import 'package:general/src/core/index.dart';
+
+class RelationSpecialFriendsView extends StatelessWidget {
+  const RelationSpecialFriendsView({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: context.paddingSymmetric(vertical: 10),
+      child: const Column(
+        children: [
+          SpecialFriendWidget(),
+        ],
+      ),
+    );
+  }
+}
+
+class SpecialFriendWidget extends StatelessWidget {
+  const SpecialFriendWidget({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        border: Border.all(color: ColorManager.transparent),
+      ),
+      child: Column(
+        children: [
+          Stack(
+            children: [
+              Image.asset(
+                AssetsManager.cpBackGround,
+                fit: BoxFit.fill,
+                width: double.infinity,
+              ),
+              Align(
+                alignment: Alignment.topCenter,
+                child: Padding(
+                  padding: context.paddingOnly(top: 13),
+                  child: Text(StringManager.specialFriend.tr(),
+                      style: context.bodyLarge.bold),
+                ),
+              ),
+            ],
+          ),
+          Container(
+            decoration: const BoxDecoration(
+              color: Color(0xffF5E2FF),
+              border: Border(
+                left: BorderSide(width: 3, color: ColorManager.gold),
+                right: BorderSide(width: 3, color: ColorManager.gold),
+              ),
+            ),
+            child: Padding(
+                padding: context.paddingAll(16),
+                child: SizedBox(
+                  width: ScreenUtil().screenWidth * 0.85,
+                  child:  Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      LevelWidget(
+                        level: 1,
+                        title: 'التاثير الخاص على مقعد المايك ',
+                        imagePath: AssetsManager.cpContainer,
+                      ),
+                      LevelWidget(
+                        level: 2,
+                        title: 'التاثير الخاص على مقعد المايك ',
+                        imagePath: AssetsManager.cpContainer,
+                      ),
+                    ],
+                  ),
+                )),
+          ),
+          Image.asset(
+            AssetsManager.cpBackGround,
+            fit: BoxFit.fill,
+            width: double.infinity,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class LevelWidget extends StatelessWidget {
+  final int level;
+  final String title;
+  final String imagePath;
+
+  const LevelWidget({
+    required this.level,
+    required this.title,
+    required this.imagePath,
+    super.key,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Column(
+          children: [
+            Container(
+              width: 3.w,
+              height: 55.h,
+              color:
+                  level > 1 ? ColorManager.darkGreenChat : ColorManager.transparent,
+            ),
+            Container(
+              width: 50.w,
+              height: 50.h,
+              decoration: BoxDecoration(
+                  //color: Colors.purple,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: ColorManager.fieldColorChat),
+                  gradient: const LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: ColorManager.cpBackgroundGradient,
+                  )),
+              child: Stack(children: [
+                Image.asset(
+                  AssetsManager.cpBackGround,
+                  width: double.infinity,
+                  fit: BoxFit.fill,
+                ),
+                Center(
+                  child: Text(
+                    "LVL $level",
+                    style: context.bodyMedium.w900,
+                  ),
+                )
+              ]),
+            ),
+            Container(
+              width: 3.w,
+              height: 55.h,
+              color: level < 2
+                  ? ColorManager.dailyPrizeBackground
+                  : ColorManager.transparent,
+            ),
+          ],
+        ),
+        10.wBox,
+        Expanded(
+          child: Container(
+            decoration: BoxDecoration(
+              borderRadius: 12.radius,
+              color: ColorManager.highlightColor,
+            ),
+            child: Padding(
+              padding: context.paddingSymmetric(vertical: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Text(
+                    title,
+                    style: context.bodyMedium.bold,
+                  ),
+                  10.hBox,
+                  Image.asset(
+                    imagePath,
+                    width: double.infinity,
+                    fit: BoxFit.fill,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}

@@ -1,0 +1,82 @@
+name: utd_audio_room_kit
+description: >-
+  Real-time live audio room for Flutter: seat management, real-time chat,
+  mic/speaker controls, speak requests, moderation, and minimize/PiP.
+version: 1.10.3
+repository: https://github.com/Company-utd-projects/audio_room_kit
+homepage: https://github.com/Company-utd-projects/audio_room_kit
+issue_tracker: https://github.com/Company-utd-projects/audio_room_kit/issues
+topics:
+  - audio
+  - voice-chat
+  - webrtc
+  - realtime
+
+environment:
+  # Floor raised to match device_info_plus ^12.0.0 (Dart >=3.7.0 / Flutter >=3.29.0),
+  # the binding constraint in the resolved tree.
+  sdk: ">=3.7.0 <4.0.0"
+  flutter: ">=3.29.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Real-time audio/video engine (core RTC transport)
+  livekit_client: ^2.7.0
+
+  # WebRTC — direct access to Bluetooth-preferring audio routing
+  flutter_webrtc: ^1.4.0
+
+  # Android OS-level Picture-in-Picture (auto-enter on Home). Android-only;
+  # every call is Platform.isAndroid-guarded. iOS / Android < 31 fall back to
+  # the in-app minimize overlay.
+  floating: ^6.0.0
+
+  # State management
+  flutter_bloc: ^9.1.1
+
+  # Dependency injection
+  get_it: ^9.2.0
+
+  # Functional programming (Either type)
+  dartz: ^0.10.1
+
+  # Equality comparison
+  equatable: ^2.0.8
+
+  # Responsive UI
+  flutter_screenutil: ^5.9.3
+
+  # Audio session configuration (iOS critical)
+  audio_session: ^0.1.21
+
+  # Runtime permission requests (microphone)
+  permission_handler: ^12.0.1
+
+  # Disk-cached avatar images: plain Image.network re-downloads every avatar
+  # each app session (memory cache only) — seats showed initials for seconds.
+  cached_network_image: ^3.4.1
+
+  # HTTP client for UTD Stream API
+  dio: ^5.4.0
+
+  # Pretty Dio logger
+  pretty_dio_logger: ^1.4.0
+
+  # Persist a stable device_id for single-active-session enforcement
+  shared_preferences: ^2.2.0
+
+  # Auto-capture device facts (model/os/os_version) for the dashboard's per-participant view.
+  # device_info_plus is already in the tree transitively; pinned here explicitly.
+  device_info_plus: ^12.0.0
+  # App version for the same per-participant view.
+  package_info_plus: ^8.0.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true

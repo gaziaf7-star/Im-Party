@@ -1,0 +1,24 @@
+default_platform(:android)
+
+platform :android do
+  desc "Deploy a new version to the Google Play Store"
+  lane :deploy do
+    gradle(
+      task: "bundle",
+      build_type: "Release"
+    )
+
+    upload_to_play_store(
+      json_key: "fastlane/temopo-2cba7-d8d323f14c54.json",
+      package_name: "app.zaviro.live",
+      track: "production", # or 'internal', 'beta', 'alpha'
+      aab: "../build/app/outputs/bundle/release/app-release.aab",
+      skip_upload_apk: true,
+      skip_upload_aab: false,
+      skip_upload_metadata: true,
+      skip_upload_images: true,
+      skip_upload_screenshots: true,
+      timeout: 3600
+    )
+  end
+end

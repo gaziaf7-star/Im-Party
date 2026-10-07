@@ -1,0 +1,448 @@
+﻿# App name
+name: general
+
+# App description
+description: "General App from UTD Software Solutions Company."
+
+# Do not publish to pub.dev
+publish_to: "none"
+
+# Version and build number
+version: 1.0.16+17
+
+environment:
+  # Dart SDK version constraint
+  # Floor raised to 3.7.0 for centrifuge 0.19.x (requires Dart >=3.7).
+  # Toolchain in use is Dart 3.12 / Flutter 3.44, so this is satisfied.
+  sdk: ">=3.7.0 <4.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter # Core Flutter SDK
+
+  # iOS-style icons
+  cupertino_icons: ^1.0.6
+
+  # Responsive UI based on screen size
+  flutter_screenutil: ^5.9.3
+
+  # Functional programming utilities
+  dartz: ^0.10.1
+  dio: ^5.9.0
+  dio_smart_retry: ^7.0.1
+  # Opt-in HTTP response cache (GET only) â€” pure Dart, MemCacheStore (no native code, Shorebird-safe)
+  dio_cache_interceptor: ^4.0.6
+  # Promoted from transitive to direct: FileCacheStore uses sha256 to bound
+  # cache filename length. Version already in the resolved tree (no new download).
+  crypto: ^3.0.7
+  pretty_dio_logger: ^1.4.0
+
+  # Localization support
+  flutter_localizations:
+    sdk: flutter
+  easy_localization: ^3.0.7
+
+  # Simplifies object equality comparison
+  equatable: ^2.0.8
+
+  # Dependency injection
+  get_it: ^9.2.0
+
+  # State management
+  flutter_bloc: ^9.1.1
+
+  # Pick images/videos from device
+  image_picker: ^1.2.1
+
+  # File and image cache manager
+  flutter_cache_manager: ^3.4.1
+
+  # Centrifugo realtime transport (Phase 5). Version pinned EXACTLY (no caret):
+  # this client is pre-1.0, so a minor bump can break the API. spinify is the
+  # documented fallback if a compatibility issue forces a swap.
+  centrifuge: 0.19.1
+
+  # Client-generated UUID used as the Idempotency-Key / dedup key across the
+  # whole offline pipeline (outbox -> REST send -> realtime publication).
+  uuid: ^4.5.1
+
+  # Display SVG files
+  flutter_svg: ^2.2.4
+
+  # Skeleton loading effect
+  shimmer: ^3.0.0
+
+  # Local database
+  hive: ^2.2.3
+  hive_flutter: ^1.1.0
+
+  # Relational local database (drift over SQLite) â€” chat single-source-of-truth
+  drift: ^2.21.0
+  sqlite3_flutter_libs: ^0.5.24
+
+  # Phone input and validation
+  phone_form_field: ^10.0.4
+
+  # Country picker
+  country_picker: ^2.0.27
+
+  # Custom splash screen
+  flutter_native_splash: ^2.4.1
+
+  # File picker
+  file_picker: ^11.0.2
+
+  # Firebase core setup
+  firebase_core: ^4.1.0
+
+  # Google sign-in
+  google_sign_in: ^6.2.1
+
+  # Huawei sign-in
+  huawei_account: ^6.12.0+303
+
+  # Apple sign-in
+  sign_in_with_apple: ^6.1.3
+
+  # Device ID retriever
+  platform_device_id_plus: ^1.0.7
+
+  # Share content (text, files, links)
+  share_plus: ^12.0.1
+
+  # Play audio files
+  audioplayers: ^6.4.0
+
+  # Ludo room game (Flame renders the board and tokens)
+  flame: ^1.38.2
+
+  # Local notifications
+  flutter_local_notifications: ^18.0.1
+
+  # Reaction widget (like emojis, likes)
+  reaction_askany: ^0.1.2
+
+  # Play video files
+  video_player: ^2.10.0
+
+  # Send voice messages
+  voice_message_package: ^2.2.1
+
+  # Local storage (key-value)
+  shared_preferences: ^2.3.2
+
+  # Animated icons
+  animated_icon: ^0.0.6
+
+  # Handle permissions (camera, mic, etc.)
+  permission_handler: ^12.0.1
+
+  # Read the device address book for WhatsApp-style contact discovery (chat Â§3)
+  flutter_contacts: ^1.1.9+2
+
+  # Generate video thumbnails
+  flutter_video_thumbnail_plus: ^1.0.5
+
+  # Transparent placeholder image
+  transparent_image: ^2.0.1
+
+  # Lottie animations
+  lottie:
+
+  # Circular percentage indicators
+  percent_indicator: ^4.2.4
+  font_awesome_flutter: any
+
+  # UTD Audio Room Kit â€” git dependency (repo: audio_room_kit), pinned to a version
+  # tag. The kit author maintains it; we take updates by bumping `ref:` only (do NOT
+  # vendor a copy under packages/). See Desktop/UTD_KITS_MIGRATION.md.
+  utd_audio_room_kit: ^1.10.3
+
+  # UTD Live Room Kit â€” git dependency (repo: live_room_kit). Imported `as live`
+  # (shares symbol names with the audio kit). Make-admin/permissions live here.
+  utd_live_room_kit: ^1.6.2
+
+  # UTD Video Effects Kit â€” git dependency (repo: video_effects_kit). Plugs into the
+  # live kit via UTDLiveRoomConfig.buildVideoProcessor; imported `as fx`.
+  utd_video_effects_kit: ^0.9.0
+
+  # Glow effect around avatar (mic speaking indicator)
+  avatar_glow: ^3.0.1
+
+  # Advanced animations
+  flutter_animate: ^4.5.2
+
+  # Scrolling text widget
+  text_scroll: ^0.2.0
+
+  # WebView integration
+  webview_flutter: ^4.13.0
+  flutter_inappwebview: ^6.0.0
+
+  # Query audio files
+  on_audio_query_forked: ^2.9.1
+
+  # Blurred background container
+  blurrycontainer: ^2.1.0
+
+  # Ripple effect
+  awesome_ripple_animation: ^2.0.0
+
+  # Draggable floating widget
+  draggable_float_widget: ^0.1.0
+
+  # Carousel slider
+  carousel_slider: ^5.0.0
+
+  # Path provider for local storage
+  path_provider: ^2.1.4
+
+  # OTP/PIN input
+  pinput: ^5.0.0
+
+  # Audio waveform visualizer
+  audio_waveforms: ^1.1.1
+
+  # Persian (Shamsi) date
+  shamsi_date: ^1.0.2
+
+  # Play SVGA animations
+  flutter_svga: ^0.0.13
+
+  # Encryption/decryption
+  encrypt: ^5.0.3
+
+  # Image cropper
+  image_cropper: ^12.1.1
+
+  # Launch URLs
+  url_launcher: ^6.3.1
+
+  # Firebase messaging (push notifications)
+  firebase_messaging: ^16.0.1
+
+  # Floating UI elements
+  floating: ^6.0.0
+
+  # Keep screen awake
+  wakelock_plus: ^1.2.8
+
+  # YouTube API + Player
+  youtube_api: ^1.0.4
+  youtube_player_iframe: ^5.0.0
+
+  # Skeleton loading
+  skeletonizer: ^2.1.0+1
+
+  # Page indicators
+  smooth_page_indicator: ^1.2.0+3
+
+  # Deep links / app links
+  app_links: ^6.4.1
+
+  # In-app purchases
+  in_app_purchase: ^3.1.10
+
+  # Detect file MIME type
+  mime: ^2.0.0
+
+  # Video processing with ffmpeg
+  ffmpeg_kit_flutter_new: ^4.1.0
+
+  # Video trimmer
+  video_trimmer: ^5.0.0
+
+  # Loading animations
+  loading_animation_widget: ^1.3.0
+
+  # Render HTML as Flutter widgets
+  flutter_widget_from_html: ^0.15.3
+
+  # Alpha video player (forked with software decoder fallback)
+  alpha_player_plugin: ^0.0.1
+
+  # Check internet connectivity
+  connectivity_plus: ^7.1.1
+
+  # Video compression
+  video_compress: ^3.1.0
+
+  # Vap2 video effects
+  flutter_vap2: ^2.0.1
+
+  # Charts and graphs
+  fl_chart: ^0.70.2
+
+  # Syncfusion DataGrid
+  syncfusion_flutter_datagrid: ^25.1.4
+
+  # Image compression
+  flutter_image_compress: ^2.4.0
+
+  # HTTP requests
+  http: ^0.13.0
+
+  # Android intents
+  android_intent_plus: ^6.0.0
+
+  # Cached network images
+  cached_network_image: ^3.4.1
+  device_info_plus: ^12.3.0
+  scrollable_positioned_list: ^0.3.8
+
+  # Firebase Analytics
+  firebase_analytics: any
+
+  # Swipeable cards
+  flutter_card_swiper: ^7.0.2
+
+  # Logging library
+  phone_state: ^2.1.1
+  flutter_media_metadata: ^1.0.0+1
+
+  # Pretty logger for Dio requests
+  firebase_crashlytics: ^5.0.2
+  firebase_auth: any
+  visibility_detector: ^0.4.0+2
+  ipapi: ^2.0.1
+  webview_flutter_wkwebview: ^3.23.3
+  easy_stepper: ^0.8.5+1
+  step_progress: ^2.7.1
+  device_preview: ^1.3.1
+
+dependency_overrides:
+  on_audio_query_forked:
+    path: packages/on_audio_query_forked
+  on_audio_query_android_v1_8:
+    path: packages/on_audio_query_android_v1_8
+  # Local fork of flutter_vap2 that fixes the native "Reply already submitted"
+  # crash (double MethodChannel reply on VAP animation complete) â€” the app's
+  # single biggest crash (room/gifts/effects).
+  flutter_vap2:
+    path: packages/flutter_vap2
+  # Local fork of voice_message_package that makes VoiceController.dispose
+  # idempotent (double dispose hit AnimationController's null _ticker â€”
+  # Null check crash at voice_controller.dart:187, Wats Jo voice notes).
+  voice_message_package:
+    path: packages/voice_message_package
+  # Local fork of alpha_player_plugin. androidx.lifecycle 2.7 replaced
+  # LifecycleOwner.getLifecycle() with the `lifecycle` property, so the
+  # published 0.0.1 no longer compiles at all â€” AlphaPlayerView is left
+  # abstract and :alpha_player_plugin:compileDebugKotlin fails the whole build.
+  alpha_player_plugin:
+    path: packages/alpha_player_plugin
+  # Local fork of flutter_media_metadata. MediaMetadataRetriever became
+  # AutoCloseable in API 35, so release() now declares IOException and the
+  # published plugin no longer compiles against compileSdk 36.
+  flutter_media_metadata:
+    path: packages/flutter_media_metadata
+  # Local fork of utd_audio_room_kit. UTDRoomController.initApi already accepts
+  # `baseUrl` / `tokenBaseUrl`, but UTDAudioRoom calls it WITHOUT them, so every
+  # build resets the engine host back to the vendor's `engine.udt-stream.com` â€”
+  # even when the app passes a pre-configured controller. The fork threads both
+  # parameters through the widget, which is what lets this app run its own
+  # engine against our own LiveKit.
+  utd_audio_room_kit:
+    path: packages/utd_audio_room_kit
+  # Local fork of utd_live_room_kit, for the same reason as the audio kit above:
+  # UTDLiveRoom called initApi without `baseUrl` / `engineBaseUrl`, pinning the
+  # live (video/multi-guest) room to the vendor's hosts.
+  utd_live_room_kit:
+    path: packages/utd_live_room_kit
+  # Force specific versions to fix conflicts
+  audioplayers: ^6.4.0
+  webview_flutter_android: ^3.16.3
+  http: ^1.2.2
+  file: ^7.0.0
+  chewie: ^1.10.0
+  readmore: ^3.0.0
+  intl: ^0.20.2
+  audio_session: ^0.2.2
+  archive: ^4.0.7
+  js: ^0.7.1
+  # utd_audio_room_kit / livekit transitive pins
+  pointycastle: ^4.0.0
+  device_info_plus: ^12.3.0
+
+dev_dependencies:
+  # Per-client launcher icon generation (white-label identity, see tools/apply-identity.sh)
+  flutter_launcher_icons: ^0.14.4
+  # Code generation (Hive, JSON, etc.)
+  build_runner: ^2.4.9
+  hive_generator: ^2.0.1
+
+  # drift code generation
+  drift_dev: ^2.20.0
+
+  # Unit testing
+  flutter_test:
+    sdk: flutter
+
+  # Linting rules
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true # Enable Material icons
+
+  assets:
+    - assets/images/
+    - assets/videos/
+    - assets/icons/
+    - assets/icons/ui_icons/
+    - assets/lottie/
+    - assets/sounds/
+    - assets/sounds/ludo/
+    - assets/sounds/carom/
+    - shorebird.yaml
+
+  fonts:
+    - family: AppFont
+      fonts:
+        - asset: assets/fonts/app/NotoSans-Bold.ttf
+          weight: 700
+        - asset: assets/fonts/app/NotoSans-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/app/NotoSans-Regular.ttf
+          weight: 400
+
+    - family: SegoeUI
+      fonts:
+        - asset: assets/fonts/SegoeUI-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/SegoeUI-Regular.ttf
+          weight: 400
+
+    - family: BungeeSpice
+      fonts:
+        - asset: assets/fonts/BungeeSpice-Regular.ttf
+          weight: 400
+
+    - family: RobotoSlab
+      fonts:
+        - asset: assets/fonts/RobotoSlab-ExtraBold.ttf
+          weight: 900
+
+# Splash screen configuration
+# splash_logo.png is logo.png with transparent padding around it. Android 12
+# masks the splash icon to a CIRCLE and keeps only the inner two thirds, so an
+# edge-to-edge mark loses its crown, one wing and the last letter â€” the app was
+# showing "ZAVIRC". Built by ops/bm1_splash_logo.py; regenerate it there rather
+# than swapping this path back to logo.png, which is the unpadded in-app mark.
+flutter_native_splash:
+  color: "#ffffff"
+  image: "assets/icons/ui_icons/splashlogo (2).png"
+  android_12:
+    image: "assets/icons/ui_icons/splashlogo (2).png"
+    color: "#ffffff"
+
+  android_gravity: center
+
+# Launcher icon generation. image_path is a FIXED path filled per client by
+# tools/apply-identity.sh from tools/brand/<client>/icon.png (so a merge from
+# master cannot leak the master icon â€” apply-identity re-runs after every merge).
+flutter_launcher_icons:
+  android: "ic_launcher"
+  ios: true
+  remove_alpha_ios: true
+  image_path: "assets/images/app_icon.png"
+

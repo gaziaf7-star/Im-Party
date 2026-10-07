@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+	<dict>
+		<!-- Google Sign-In Client ID -->
+		<key>GIDClientID</key>
+		<string>70755218642-irosq0m912tou0598jpq62q8ri981klu.apps.googleusercontent.com</string>
+		<key>FlutterDeepLinkingEnabled</key>
+		<false/>
+		<key>CADisableMinimumFrameDurationOnPhone</key>
+		<true/>
+		<key>CFBundleDevelopmentRegion</key>
+		<string>$(DEVELOPMENT_LANGUAGE)</string>
+		<key>CFBundleDisplayName</key>
+		<string>Meow Live</string>
+		<key>CFBundleExecutable</key>
+		<string>$(EXECUTABLE_NAME)</string>
+		<key>CFBundleIdentifier</key>
+		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+		<key>CFBundleInfoDictionaryVersion</key>
+		<string>6.0</string>
+		<key>CFBundleName</key>
+		<string>Meow Live</string>
+		<key>CFBundlePackageType</key>
+		<string>APPL</string>
+		<key>CFBundleShortVersionString</key>
+		<string>$(FLUTTER_BUILD_NAME)</string>
+		<key>CFBundleVersion</key>
+		<string>$(FLUTTER_BUILD_NUMBER)</string>
+		<!-- URL Schemes -->
+		<key>CFBundleURLTypes</key>
+		<array>
+			<!-- App deep link -->
+			<dict>
+				<key>CFBundleURLName</key>
+				<string>com.jo.live.app</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>jolive</string>
+				</array>
+			</dict>
+			<!-- Google Sign-In -->
+			<dict>
+				<key>CFBundleURLName</key>
+				<string>com.googleusercontent.apps.70755218642-irosq0m912tou0598jpq62q8ri981klu</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.googleusercontent.apps.70755218642-irosq0m912tou0598jpq62q8ri981klu</string>
+				</array>
+			</dict>
+			<!-- Apple Sign-In -->
+			<dict>
+				<key>CFBundleURLName</key>
+				<string>com.apple.signin</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>com.jo.live.app</string>
+				</array>
+			</dict>
+		</array>
+		<key>FirebaseAppDelegateProxyEnabled</key>
+		<false/>
+		<key>LSApplicationQueriesSchemes</key>
+		<array>
+			<string>https</string>
+		</array>
+		<key>NSAppTransportSecurity</key>
+		<dict>
+			<key>NSAllowsArbitraryLoads</key>
+			<true/>
+		</dict>
+		<key>NSAppleMusicUsageDescription</key>
+		<string>This app requires access to your music library to allow sharing your favorite songs.</string>
+		<key>NSContactsUsageDescription</key>
+		<string>This app uses your contacts to help you find friends who are already on the app to chat with.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>This app needs access to the camera for live video broadcasting.</string>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>This app needs access to the microphone for voice broadcasting.</string>
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>This app needs access to your photo library for setting profile pictures and sharing photos.</string>
+		<key>SignInWithApple</key>
+		<true/>
+		<key>UIApplicationSupportsIndirectInputEvents</key>
+		<true/>
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>audio</string>
+			<string>fetch</string>
+			<string>remote-notification</string>
+		</array>
+		<key>UILaunchStoryboardName</key>
+		<string>LaunchScreen</string>
+		<key>UIMainStoryboardFile</key>
+		<string>Main</string>
+		<key>UIStatusBarHidden</key>
+		<false/>
+		<key>UISupportedInterfaceOrientations</key>
+		<array>
+			<string>UIInterfaceOrientationPortrait</string>
+			<string>UIInterfaceOrientationLandscapeLeft</string>
+			<string>UIInterfaceOrientationLandscapeRight</string>
+		</array>
+		<key>UISupportedInterfaceOrientations~ipad</key>
+		<array>
+			<string>UIInterfaceOrientationPortrait</string>
+			<string>UIInterfaceOrientationPortraitUpsideDown</string>
+			<string>UIInterfaceOrientationLandscapeLeft</string>
+			<string>UIInterfaceOrientationLandscapeRight</string>
+		</array>
+	</dict>
+</plist>

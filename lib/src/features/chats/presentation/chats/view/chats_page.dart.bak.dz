@@ -1,0 +1,694 @@
+import 'dart:async';
+
+import 'package:general/src/core/database/daos/rooms_dao.dart';
+import 'package:general/src/core/database/tables/chat_tables.dart';
+import 'package:general/src/core/realtime/chat_repository.dart';
+import 'package:general/src/core/utils/relative_time.dart';
+import 'package:general/src/features/auth/domain/entities/user_entity.dart';
+import 'package:general/src/features/chats/chats.dart';
+import 'package:general/src/features/chats/presentation/chats/view/chat_friend_picker_screen.dart';
+import 'package:general/src/features/chats/presentation/chats/view/components/tab_bar_body.dart';
+import 'package:general/src/features/chats/presentation/chats/view/widgets/chat_strings.dart';
+import 'package:general/src/features/chats/presentation/chats/view/widgets/chats_more_menu.dart';
+import 'package:general/src/features/chats/presentation/chats/view/widgets/chats_search_bar.dart';
+import 'package:general/src/features/chats/presentation/chats/view/widgets/new_chat_fab.dart';
+import 'package:general/src/features/chats/presentation/chats/view/widgets/notifications_bell.dart';
+import 'package:general/src/features/chats/presentation/chats/view/widgets/profile_visitors_icon.dart';
+import 'package:general/src/features/chats/presentation/chats/view/widgets/room_to_conversation_mapper.dart';
+import 'package:general/src/features/chats/presentation/chats/view/widgets/synthetic_chat_card.dart';
+import 'package:general/src/features/groups/presentation/groups_list/view/widgets/group_list_card.dart';
+import 'package:general/src/features/home/presentation/search_screen/bloc/search_manager/search_bloc.dart';
+import 'package:general/src/features/home/presentation/search_screen/bloc/search_manager/search_events.dart';
+import 'package:general/src/features/home/presentation/search_screen/bloc/search_manager/search_states.dart';
+
+part 'widgets/tab_bar_item_widget.dart';
+
+/// WhatsApp-style chats screen, now sourced entirely from the local-first drift
+/// store: the room list (1:1 + groups), unread badges, last-message preview and
+/// time all come from [ChatRepository.watchRooms] so the list works offline,
+/// updates in realtime, and shows the same time as inside the conversation.
+class ChatsPage extends StatefulWidget {
+  final bool? fromRoom;
+  const ChatsPage({super.key, this.fromRoom});
+
+  @override
+  State<ChatsPage> createState() => _ChatsPageState();
+}
+
+class _ChatsPageState extends State<ChatsPage> with TickerProviderStateMixin {
+  late final TabController controller;
+
+  // C16 guard: the DI container can briefly be mid-(re)registration when this
+  // page builds (login / switch-account reset). Reading di<ChatRepository>() /
+  // di<RoomsDao>() in field initializers then throws "Bad state: not
+  // registered". These are resolved lazily once the chat deps are registered;
+  // until then the page renders a loading state instead of crashing.
+  ChatRepository? _repo;
+  RoomsDao? _roomsDao;
+  Stream<List<RoomWithLast>>? _roomsStream;
+  final int _myId = MyDataModel.getInstance().id ?? 0;
+
+  /// True once every chat dependency this page touches is registered. When false
+  /// the build shows a loading state (graceful degradation, never a crash).
+  bool get _chatReady =>
+      di.isRegistered<ChatRepository>() &&
+      di.isRegistered<RoomsDao>() &&
+      di.isRegistered<GetSystemChatBloc>();
+
+  // Inline search (no separate screen): typing filters the list in place.
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _query = '';
+
+  // Debounced search state: a keystroke schedules a single query ~280ms later
+  // (not one DB+network scan per keystroke), and a monotonic token drops the
+  // results of any query superseded by newer typing (in-flight guard).
+  Timer? _searchDebounce;
+  int _searchToken = 0;
+  bool _searchLoading = false;
+  List<RoomWithLast> _searchRooms = const [];
+  List<MessageHit> _searchMessages = const [];
+
+  @override
+  void initState() {
+    super.initState();
+    controller = TabController(length: 3, vsync: this);
+    _bindChatDeps();
+  }
+
+  /// Resolve the chat dependencies + kick the initial loads, but only once the
+  /// container has them registered. If the container is still being built
+  /// (C16), retry on the next frame so the page recovers without a crash.
+  void _bindChatDeps() {
+    if (!_chatReady) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) setState(_bindChatDeps);
+      });
+      return;
+    }
+    if (_repo != null) return; // already bound
+    _repo = di<ChatRepository>();
+    _roomsDao = di<RoomsDao>();
+    // Cache the drift stream so list rebuilds (e.g. the 30s relative-time tick)
+    // don't re-subscribe and flash a loading state.
+    _roomsStream = _repo!.watchRooms();
+    // Seed/refresh the whole conversation list into drift from the server. The
+    // list itself renders reactively from drift, so this is a best-effort
+    // top-up — offline it is a no-op and the cached list still shows.
+    _repo!.refreshRooms();
+    // Technical-Support lives inside the unified "All" list as a synthetic row.
+    di<GetSystemChatBloc>().add(const GetOfficialChatEvent(isLoading: false));
+  }
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _searchCtrl.dispose();
+    controller.dispose();
+    super.dispose();
+  }
+
+  /// Debounced + token-guarded inline search. Cancels any pending query, then
+  /// after a short idle window runs the room/message scans once and applies the
+  /// result only if it is still the latest query (drops stale/out-of-order ones).
+  void _onSearchChanged(String value) {
+    _searchDebounce?.cancel();
+    final q = value.trim();
+    setState(() => _query = value);
+    if (q.isEmpty) {
+      _searchToken++; // invalidate any in-flight query
+      setState(() {
+        _searchLoading = false;
+        _searchRooms = const [];
+        _searchMessages = const [];
+      });
+      return;
+    }
+    setState(() => _searchLoading = true);
+    _searchDebounce = Timer(const Duration(milliseconds: 280), () async {
+      final token = ++_searchToken;
+      final results = await Future.wait([
+        _roomsDao!.searchRooms(q),
+        _roomsDao!.searchMessages(q),
+      ]);
+      if (!mounted || token != _searchToken) return;
+      setState(() {
+        _searchLoading = false;
+        _searchRooms = results[0] as List<RoomWithLast>;
+        _searchMessages = results[1] as List<MessageHit>;
+      });
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // C16: until the chat deps are registered + bound, render a loading state
+    // rather than dereferencing them (which would throw "not registered").
+    if (!_chatReady || _roomsStream == null) {
+      return const BackgroundImgWidget(
+        child: Scaffold(
+          backgroundColor: ColorManager.transparent,
+          body: SafeArea(child: LoadingWidget()),
+        ),
+      );
+    }
+    return BackgroundImgWidget(
+      child: Scaffold(
+        backgroundColor: ColorManager.transparent,
+        // Two stacked FABs: the primary "new chat" stays at thumb level on
+        // top, the contacts shortcut sits below — both share the same shape +
+        // primary color so they read as one consistent action stack.
+        floatingActionButton: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const NewChatFab(),
+            12.hBox,
+            FloatingActionButton(
+              heroTag: 'fab_contacts',
+              backgroundColor: ColorManager.primary,
+              onPressed: () => Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (_) => const ChatFriendPickerScreen(),
+                ),
+              ),
+              child: Icon(Icons.people_alt_outlined,
+                  color: ColorManager.buttonTextColor, size: 24.h),
+            ),
+          ],
+        ),
+        body: SafeArea(
+          child: Column(
+            children: [
+              // ── Title row: WhatsApp-style chat brand (right) + menu (left). ──
+              Padding(
+                padding: context.paddingOnly(start: 16, end: 4, top: 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      StringManager.watsJo.tr(),
+                      style: context.titleLarge.bold
+                          .size(24)
+                          .colorExt(ColorManager.textPrimary),
+                    ),
+                    const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ProfileVisitorsIcon(),
+                        NotificationsBell(),
+                        ChatsMoreMenu(),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // ── Inline search bar (filters the list in place). ──
+              Padding(
+                padding: context.paddingSymmetric(horizontal: 12, vertical: 8),
+                child: ChatsSearchBar(
+                  controller: _searchCtrl,
+                  onChanged: _onSearchChanged,
+                ),
+              ),
+              Expanded(
+                child: _query.trim().isEmpty
+                    ? _normalBody()
+                    : _searchBody(_query.trim()),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ── Normal (tabs) body ────────────────────────────────────────────────────
+
+  Widget _normalBody() {
+    return StreamBuilder<List<RoomWithLast>>(
+      stream: _roomsStream!,
+      builder: (context, snapshot) {
+        final rooms = snapshot.data ?? const <RoomWithLast>[];
+        final groups =
+            rooms.where((r) => r.room.type == RoomType.group).toList();
+        final unread = rooms.where((r) => r.room.unreadCount > 0).toList();
+        final totalUnread =
+            rooms.fold<int>(0, (sum, r) => sum + r.room.unreadCount);
+        final groupsUnread =
+            groups.fold<int>(0, (sum, r) => sum + r.room.unreadCount);
+
+        // Rebuild every ~30s so relative last-activity times stay live even
+        // when no new message arrives (the drift stream stays the single
+        // source; only the time labels recompute).
+        return ListenableBuilder(
+          listenable: RelativeTimeTicker.instance,
+          builder: (context, _) => Column(
+            children: [
+              TabBarBody(
+                controller: controller,
+                allCount: totalUnread,
+                groupsCount: groupsUnread,
+                unreadCount: totalUnread,
+              ),
+              4.hBox,
+              Expanded(
+                child: TabBarView(
+                  controller: controller,
+                  children: [
+                    _allTab(rooms, snapshot.connectionState),
+                    _groupsTab(groups, snapshot.connectionState),
+                    _unreadTab(unread, snapshot.connectionState),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // ── Inline search results (conversations + message content, highlighted) ──
+
+  Widget _searchBody(String query) {
+    // Results come from the debounced search state (no per-keystroke
+    // FutureBuilder), so a burst of typing runs at most one scan.
+    if (_searchLoading) return const LoadingWidget();
+    final rooms = _searchRooms;
+    final messages = _searchMessages;
+    if (rooms.isEmpty && messages.isEmpty) {
+      // No local conversation matched: fall back to searching friends so the
+      // user can start a brand-new chat, plus a jump into phone contacts.
+      return _FriendsSearchFallback(
+        query: query,
+        onOpenChat: _openFriendChat,
+        onOpenContacts: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => const ChatFriendPickerScreen(),
+          ),
+        ),
+      );
+    }
+    return ListView(
+      padding: context.paddingSymmetric(vertical: 8),
+      children: [
+        if (rooms.isNotEmpty) ...[
+          _sectionHeader('المحادثات'),
+          ...rooms.map(_roomTile),
+        ],
+        if (messages.isNotEmpty) ...[
+          _sectionHeader(StringManager.messages.tr()),
+          ...messages.map(_messageHitTile),
+        ],
+      ],
+    );
+  }
+
+  Widget _sectionHeader(String text) => Padding(
+        padding: context.paddingSymmetric(horizontal: 16, vertical: 8),
+        child: TextWidget(
+          text,
+          isTranslate: false,
+          style: context.bodyMedium.w600.colorExt(ColorManager.primary),
+        ),
+      );
+
+  Widget _messageHitTile(MessageHit hit) {
+    final isGroup = hit.room.type == RoomType.group;
+    return ListTile(
+      leading: UserImage(
+        imageSize: 46.w,
+        image: (hit.room.avatarUrl ?? '').isEmpty
+            ? ''
+            : EndPoints.getImage(hit.room.avatarUrl!),
+        displayName: hit.room.title,
+      ),
+      title: TextWidget(
+        hit.room.title ?? '',
+        isTranslate: false,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: context.bodyLarge.w600.colorExt(ColorManager.textPrimary),
+      ),
+      subtitle: _highlighted(hit.message.body ?? '', _query.trim()),
+      onTap: () => _openRoom(RoomWithLast(room: hit.room, last: hit.message),
+          isGroup: isGroup),
+    );
+  }
+
+  /// Renders [text] with the matched [query] highlighted yellow (WhatsApp look).
+  Widget _highlighted(String text, String query) {
+    final base = context.bodyMedium.colorExt(ColorManager.textPrimary);
+    if (query.isEmpty) {
+      return Text(text,
+          maxLines: 2, overflow: TextOverflow.ellipsis, style: base);
+    }
+    final spans = <TextSpan>[];
+    final lower = text.toLowerCase();
+    final q = query.toLowerCase();
+    var start = 0;
+    while (true) {
+      final idx = lower.indexOf(q, start);
+      if (idx < 0) {
+        spans.add(TextSpan(text: text.substring(start), style: base));
+        break;
+      }
+      if (idx > start) {
+        spans.add(TextSpan(text: text.substring(start, idx), style: base));
+      }
+      spans.add(TextSpan(
+        text: text.substring(idx, idx + query.length),
+        style: base.copyWith(
+          backgroundColor: ColorManager.lightYellow,
+          color: ColorManager.black,
+        ),
+      ));
+      start = idx + query.length;
+    }
+    return RichText(
+      maxLines: 2,
+      overflow: TextOverflow.ellipsis,
+      text: TextSpan(children: spans),
+    );
+  }
+
+  /// Opens a 1:1 conversation with a friend picked from the search fallback (no
+  /// drift room exists yet — the messages screen creates/loads it on entry).
+  void _openFriendChat(UserEntity user) {
+    Navigator.pushNamed(
+      context,
+      Routes.messages,
+      arguments: MessagesParameter(
+        hasColorName: user.hasColorName ?? false,
+        name: user.name ?? '',
+        image: user.profile?.image ?? '',
+        userId: '${user.id}',
+      ),
+    );
+  }
+
+  void _openRoom(RoomWithLast row, {required bool isGroup}) {
+    if (isGroup) {
+      final group = RoomToConversationMapper.toGroup(row);
+      context.pushNamedRoute(Routes.groupChatDetailScreen, arguments: group);
+      return;
+    }
+    final chat = RoomToConversationMapper.toUserChat(row);
+    Navigator.pushNamed(
+      context,
+      Routes.messages,
+      arguments: MessagesParameter(
+        inRoom: chat.inRoom,
+        hasColorName: chat.hasColorName,
+        name: chat.name,
+        image: chat.image,
+        userId: '${chat.userId}',
+        chatId: chat.chatId,
+      ),
+    );
+  }
+
+  // ── Tabs ──────────────────────────────────────────────────────────────────
+
+  /// "All" — every conversation (1:1 + groups) plus the synthetic Technical
+  /// Support row, merged and ordered newest-activity-first.
+  Widget _allTab(List<RoomWithLast> rooms, ConnectionState conn) {
+    return BlocBuilder<GetSystemChatBloc, GetSystemChatsStates>(
+      bloc: di<GetSystemChatBloc>(),
+      buildWhen: (p, c) => p.officialEntity != c.officialEntity,
+      builder: (context, systemState) {
+        final official = systemState.officialEntity;
+        final entries = <_RowEntry>[
+          for (final r in rooms)
+            _RowEntry(ms: _roomMs(r), room: r),
+        ];
+        // Synthetic Technical-Support row, ordered by its own real time so it
+        // sits among conversations by recency (newest activity first).
+        // NOTE: `official.first.created` is already formatted to a time-of-day
+        // label by the model (Methods.utcToLocal), so it can't be parsed back to
+        // a real instant — that made the sort key fall to 0 and the row always
+        // sink to the bottom. Use the RAW `updated_at` for the sort key, and
+        // format it for display.
+        final supportRawTime = official.isNotEmpty ? official.first.updated : '';
+        entries.add(_RowEntry(
+          ms: DateTime.tryParse(supportRawTime)?.millisecondsSinceEpoch ?? 0,
+          supportSubtitle: official.isNotEmpty
+              ? official.first.content
+              : StringManager.subTitleOfficial.tr(),
+          supportTimeLabel:
+              supportRawTime.isEmpty ? '' : Methods.utcToLocal(supportRawTime),
+        ));
+        entries.sort((a, b) => b.ms.compareTo(a.ms));
+
+        if (conn == ConnectionState.waiting && rooms.isEmpty) {
+          return const LoadingWidget();
+        }
+        return ListView.builder(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: context.paddingSymmetric(horizontal: 10, vertical: 10),
+          itemCount: entries.length,
+          itemBuilder: (_, i) => _entryWidget(entries[i]),
+        );
+      },
+    );
+  }
+
+  Widget _groupsTab(List<RoomWithLast> groups, ConnectionState conn) {
+    if (conn == ConnectionState.waiting && groups.isEmpty) {
+      return const LoadingWidget();
+    }
+    if (groups.isEmpty) return _empty(StringManager.noGroupsYet);
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: context.paddingSymmetric(vertical: 8),
+      itemCount: groups.length,
+      itemBuilder: (_, i) => _roomTile(groups[i]),
+    );
+  }
+
+  Widget _unreadTab(List<RoomWithLast> unread, ConnectionState conn) {
+    if (conn == ConnectionState.waiting && unread.isEmpty) {
+      return const LoadingWidget();
+    }
+    if (unread.isEmpty) return _empty(StringManager.noChats.tr());
+    return ListView.builder(
+      physics: const AlwaysScrollableScrollPhysics(),
+      padding: context.paddingSymmetric(horizontal: 10, vertical: 10),
+      itemCount: unread.length,
+      itemBuilder: (_, i) => _roomTile(unread[i]),
+    );
+  }
+
+  // ── Row builders ────────────────────────────────────────────────────────
+
+  Widget _entryWidget(_RowEntry e) {
+    final room = e.room;
+    if (room != null) return _roomTile(room);
+    return SyntheticChatCard(
+      title: StringManager.team.tr(),
+      subtitle: e.supportSubtitle ?? '',
+      timeLabel: e.supportTimeLabel ?? '',
+      image: AssetsManager.officialMessage,
+      onTap: () => context.pushNamedRoute(Routes.officialMessageScreen),
+    );
+  }
+
+  Widget _roomTile(RoomWithLast row) {
+    if (row.room.type == RoomType.group) {
+      final group = RoomToConversationMapper.toGroup(row);
+      return GroupListCard(
+        group: group,
+        timeLabel: RoomToConversationMapper.timeLabel(row),
+        subtitle: RoomToConversationMapper.preview(row),
+        onTap: () => context.pushNamedRoute(
+          Routes.groupChatDetailScreen,
+          arguments: group,
+        ),
+      );
+    }
+    final chat = RoomToConversationMapper.toUserChat(row);
+    return ChatRoomCard(
+      isLoading: false,
+      userChatEntity: chat,
+      isMe: '${chat.lastMessage.senderId}' == '$_myId',
+      onLongPress: () => _deleteChat(row),
+      onTap: () => Navigator.pushNamed(
+        context,
+        Routes.messages,
+        arguments: MessagesParameter(
+          inRoom: chat.inRoom,
+          hasColorName: chat.hasColorName,
+          name: chat.name,
+          image: chat.image,
+          userId: '${chat.userId}',
+          chatId: chat.chatId,
+        ),
+      ),
+    );
+  }
+
+  Widget _empty(String text) => Center(
+        child: TextWidget(
+          text,
+          style: context.bodyMedium.colorExt(ColorManager.secondaryText),
+        ),
+      );
+
+  int _roomMs(RoomWithLast r) =>
+      r.room.updatedAt ?? r.last?.serverCreatedAt ?? 0;
+
+  Future<dynamic> _deleteChat(RoomWithLast row) {
+    return showDialog(
+      context: context,
+      builder: (_) => AnimatedDialog(
+        title: StringManager.deleteChatTitle.tr(),
+        description: StringManager.deleteChatSubTitle.tr(),
+        conText: StringManager.done.tr(),
+        onTap: () {
+          final peerId = row.room.peerUserId;
+          if (peerId != null && peerId > 0) {
+            di<DeleteChatBloc>().add(DeleteChatEvent(userId: peerId));
+          }
+          di<RoomsDao>().deleteRoom(row.room.localId);
+          Navigator.pop(context);
+        },
+      ),
+    );
+  }
+}
+
+/// One renderable row of the "All" list: either a drift conversation [room] or
+/// the synthetic Technical-Support row. [ms] is the sort key (newest first).
+class _RowEntry {
+  _RowEntry({
+    required this.ms,
+    this.room,
+    this.supportSubtitle,
+    this.supportTimeLabel,
+  });
+
+  final int ms;
+  final RoomWithLast? room;
+  final String? supportSubtitle;
+  final String? supportTimeLabel;
+}
+
+/// Inline-search fallback: when no local conversation matches the query, search
+/// the user's friends (shared [SearchBloc]) so they can start a new chat, and
+/// offer a jump into phone-book contacts.
+class _FriendsSearchFallback extends StatefulWidget {
+  const _FriendsSearchFallback({
+    required this.query,
+    required this.onOpenChat,
+    required this.onOpenContacts,
+  });
+
+  final String query;
+  final void Function(UserEntity user) onOpenChat;
+  final VoidCallback onOpenContacts;
+
+  @override
+  State<_FriendsSearchFallback> createState() => _FriendsSearchFallbackState();
+}
+
+class _FriendsSearchFallbackState extends State<_FriendsSearchFallback> {
+  final SearchBloc _searchBloc = di<SearchBloc>();
+
+  @override
+  void initState() {
+    super.initState();
+    _search();
+  }
+
+  @override
+  void didUpdateWidget(covariant _FriendsSearchFallback oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.query != widget.query) _search();
+  }
+
+  void _search() => _searchBloc.add(SearchFriendsEvent(keyWord: widget.query));
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<SearchBloc, SearchStates>(
+      bloc: _searchBloc,
+      buildWhen: (p, c) =>
+          p.reqStateFriends != c.reqStateFriends ||
+          p.friendsList != c.friendsList,
+      builder: (context, state) {
+        if (!state.reqStateFriends.isLoaded) return const LoadingWidget();
+        final users = state.friendsList?.users ?? const <UserEntity>[];
+        return ListView(
+          padding: context.paddingSymmetric(vertical: 8),
+          children: [
+            if (users.isNotEmpty) ...[
+              Padding(
+                padding: context.paddingSymmetric(horizontal: 16, vertical: 8),
+                child: TextWidget(
+                  ChatStrings.startNewChat,
+                  isTranslate: false,
+                  style: context.bodyMedium.w600.colorExt(ColorManager.primary),
+                ),
+              ),
+              ...users.map((u) => _friendTile(context, u)),
+            ] else
+              Padding(
+                padding: context.paddingSymmetric(horizontal: 16, vertical: 24),
+                child: Center(
+                  child: TextWidget(
+                    ChatStrings.noSearchResults,
+                    isTranslate: false,
+                    style:
+                        context.bodyMedium.colorExt(ColorManager.secondaryText),
+                  ),
+                ),
+              ),
+            _contactsHint(context),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _friendTile(BuildContext context, UserEntity user) {
+    return ListTile(
+      leading: UserImage(
+        imageSize: 46.w,
+        image: EndPoints.getImage(user.profile?.image ?? ''),
+        displayName: user.name,
+      ),
+      title: TextWidget(
+        user.name ?? '',
+        isTranslate: false,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        style: context.bodyLarge.w600.colorExt(ColorManager.textPrimary),
+      ),
+      onTap: () => widget.onOpenChat(user),
+    );
+  }
+
+  Widget _contactsHint(BuildContext context) {
+    return InkWell(
+      onTap: widget.onOpenContacts,
+      child: Padding(
+        padding: context.paddingSymmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Icon(Icons.contacts_outlined,
+                color: ColorManager.primary, size: 22.h),
+            12.wBox,
+            Expanded(
+              child: TextWidget(
+                ChatStrings.searchInContacts,
+                isTranslate: false,
+                style: context.bodyMedium.colorExt(ColorManager.primary).w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}

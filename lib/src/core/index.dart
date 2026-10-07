@@ -1,0 +1,104 @@
+library index;
+
+// Global
+export 'package:general/main.dart';
+export 'package:general/src/core/network/dio_factory.dart';
+export 'package:flutter/material.dart';
+export 'package:flutter/services.dart';
+export 'package:flutter/foundation.dart';
+export 'package:flutter_screenutil/flutter_screenutil.dart';
+export 'package:flutter_localizations/flutter_localizations.dart';
+export 'package:dio/dio.dart';
+export 'package:get_it/get_it.dart';
+export 'package:dartz/dartz.dart' hide State;
+export 'package:easy_localization/easy_localization.dart' hide TextDirection;
+export 'package:equatable/equatable.dart';
+export 'package:flutter_svg/flutter_svg.dart';
+export 'package:phone_form_field/phone_form_field.dart';
+export 'package:flutter_bloc/flutter_bloc.dart';
+export 'package:general/src/core/widgets/main_button.dart';
+export 'package:hive_flutter/hive_flutter.dart';
+export 'package:sign_in_with_apple/sign_in_with_apple.dart' hide IconAlignment;
+export 'package:google_sign_in/google_sign_in.dart';
+export 'package:image_picker/image_picker.dart';
+export 'package:general/src/features/auth/data/model/my_data_model.dart';
+export 'package:general/src/core/widgets/user_image.dart';
+export 'package:general/src/core/widgets/initials_avatar.dart';
+export 'package:general/src/core/widgets/room_cover_placeholder.dart';
+export 'package:general/src/core/widgets/person_placeholder.dart';
+export 'package:general/src/core/widgets/expandable_text.dart';
+export 'package:general/src/core/widgets/chat_day_separator.dart';
+export 'package:general/src/core/widgets/lazy_media_image.dart';
+export 'package:general/src/core/widgets/gradient_text_vip.dart';
+export 'package:general/src/core/widgets/counter_widget.dart';
+export 'package:huawei_account/huawei_account.dart';
+export 'package:general/src/features/profile/presentation/profile/bloc/bloc_my_data/get_my_data_bloc.dart';
+//cache
+export 'package:general/src/core/widgets/cache/cache_svga_widget.dart';
+export 'package:general/src/core/widgets/cache/cache_image_widget.dart';
+export 'package:general/src/core/widgets/cache/cache_svg_widget.dart';
+export 'package:general/src/core/widgets/image_view_widget.dart';
+// Core
+// base
+export 'package:general/src/core/base/base_use_case.dart';
+export 'package:general/src/core/base/base_response.dart';
+export 'package:general/src/core/base/base_repository.dart';
+export 'package:general/src/core/app.dart';
+export 'package:general/src/core/base/handle_return.dart';
+// constants
+export 'package:general/src/core/constants/enums.dart';
+export 'package:general/src/core/constants/extensions.dart';
+export 'package:general/src/core/constants/color_manager.dart';
+export 'package:general/src/core/constants/theme/light_theme.dart';
+export 'package:general/src/core/constants/asset_manager.dart';
+export 'package:general/src/core/constants/string_manager.dart';
+export 'package:general/src/core/constants/end_points.dart';
+export 'package:general/src/core/constants/constants_manager.dart';
+// utils
+export 'package:general/src/core/utils/methods.dart';
+export 'package:general/src/core/utils/text_sanitizer.dart';
+export 'package:general/src/core/utils/games_access.dart';
+export 'package:general/src/core/utils/asset_preview_source.dart';
+// network
+export 'package:general/src/core/network/network_exceptions.dart';
+export 'package:general/src/core/network/failure_message.dart';
+// services
+export 'package:general/src/core/services/dependency_injection_service.dart';
+export 'package:general/src/core/services/firebase_phone_auth_service.dart';
+export 'package:general/src/core/services/room_state_manager.dart';
+export 'package:general/src/core/utils/cache/hive_manager.dart';
+export 'package:general/src/core/utils/cache/keys_manager.dart';
+
+// routes
+export 'package:general/src/core/routes/routes_manager.dart';
+// translations
+export 'package:general/src/core/translations/locale_keys.g.dart';
+// widgets
+export 'package:general/src/core/widgets/app_bar_widget.dart';
+export 'package:general/src/core/widgets/image_widget.dart';
+export 'package:general/src/core/widgets/nav_bar_icon.dart';
+export 'package:general/src/core/widgets/text_input_widget.dart';
+export 'package:general/src/core/widgets/text_widget.dart';
+export 'package:general/src/core/widgets/text_button_widget.dart';
+export 'package:general/src/core/widgets/button_widget.dart';
+export 'package:general/src/core/widgets/loading_widget.dart';
+
+export 'package:general/src/core/widgets/circle_loading_widget.dart';
+export 'package:general/src/core/widgets/pin_code_text_field_widget.dart';
+export 'package:general/src/core/widgets/handling_data_widget.dart';
+export 'package:general/src/core/widgets/empty_state_widget.dart';
+export 'package:general/src/core/widgets/refresh_indicator_widget.dart';
+export 'package:general/src/core/widgets/card_live_widget.dart';
+export 'package:general/src/core/widgets/animated_dialog.dart';
+export 'package:general/src/core/widgets/banner_destination_dialog.dart';
+export 'package:general/src/core/widgets/background_widget.dart';
+export 'package:general/src/core/widgets/region_background.dart';
+
+//parameters
+export 'package:general/src/core/base/parameters.dart';
+// bloc
+export 'package:general/src/features/layout/bloc/layout_bloc.dart';
+// pages
+export 'package:general/src/features/layout/view/layout_page.dart';
+export 'package:general/src/features/home/presentation/home/view/home_page.dart';
+export 'package:general/src/core/widgets/gradient_name.dart';

@@ -1,0 +1,6 @@
+انشئ keystore خاص بيك + ملف key.properties هنا:
+storePassword=...
+keyPassword=...
+keyAlias=upload
+storeFile=../key.jks
+(وحط key.jks في مجلد android/)

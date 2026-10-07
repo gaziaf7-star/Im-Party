@@ -1,0 +1,196 @@
+import 'package:flutter/rendering.dart' show ScrollCacheExtent;
+import 'package:general/src/core/index.dart';
+import 'package:general/src/features/home/domain/entities/room_entity.dart';
+import 'package:general/src/features/home/presentation/home/bloc/home_manager/home_bloc.dart';
+import 'package:general/src/features/home/presentation/home/bloc/fetch_my_room_data_manager/fetch_my_room_data_bloc.dart';
+import 'package:general/src/features/theme2_app/home/presentation/view/components/theme2_room_card.dart';
+import 'package:general/src/features/live_room/presentation/go_live_flow.dart';
+
+/// The "Live" tab of the Theme2 home — lists the currently-open live rooms.
+///
+/// Bound to [HomeBloc]'s live-rooms slice (`state.stream` / `reqStateLive` /
+/// `isPaginatingLive`, paginated through `streamScrollCtrl`). Unlike the other
+/// Theme2 tabs — which were written while video live was removed and ignore taps
+/// on `streamType == "live"` cards — tapping a card here ENTERS the live room via
+/// [RoomStateManager.navigateToRoom] with `isLive: true`.
+class Theme2LivesBody extends StatefulWidget {
+  final HomeBloc bloc;
+  const Theme2LivesBody({super.key, required this.bloc});
+
+  @override
+  State<Theme2LivesBody> createState() => _Theme2LivesBodyState();
+}
+
+class _Theme2LivesBodyState extends State<Theme2LivesBody>
+    with AutomaticKeepAliveClientMixin {
+  @override
+  bool get wantKeepAlive => true;
+
+  static final _gridDelegate = SliverGridDelegateWithFixedCrossAxisCount(
+    crossAxisCount: 2,
+    mainAxisSpacing: 10.h,
+    crossAxisSpacing: 10.w,
+    childAspectRatio: 0.75,
+  );
+
+  void _enterLive(BuildContext context, RoomEntity room) {
+    if (!di<FetchUserDataBloc>().state.reqState.isLoaded) return;
+    di<RoomStateManager>().navigateToRoom(
+      RoomEntryRequest(
+        context: context,
+        roomData: room,
+        isLive: true,
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    super.build(context);
+
+    return BlocBuilder<HomeBloc, HomeState>(
+      bloc: widget.bloc,
+      buildWhen: (prev, curr) =>
+          prev.stream != curr.stream ||
+          prev.reqStateLive != curr.reqStateLive ||
+          prev.isPaginatingLive != curr.isPaginatingLive,
+      builder: (context, homeState) {
+        final rooms = homeState.stream;
+        final count = rooms.length;
+
+        return RefreshIndicatorWidget(
+          onRefresh: () async {
+            widget.bloc.add(const FetchLiveRoomsEvent(
+                isLiveLoading: false, isFirstPage: true));
+          },
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            controller: homeState.streamScrollCtrl,
+            scrollCacheExtent: const ScrollCacheExtent.pixels(250),
+            slivers: [
+              if (homeState.reqStateLive.isLoading ||
+                  homeState.reqStateLive.isError)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: context.paddingSymmetric(horizontal: 10),
+                    child: HandlingDataWidget(
+                      reqState: homeState.reqStateLive,
+                      title: StringManager.noRooms.tr(),
+                      subTitle: StringManager.noRoomsMsg.tr(),
+                      onTap: () => widget.bloc
+                          .add(const FetchLiveRoomsEvent(isFirstPage: true)),
+                      childEmpty: const SizedBox(),
+                      child: const SizedBox.shrink(),
+                    ),
+                  ),
+                ),
+
+              // No broadcasts right now: invite the user to be the FIRST host
+              // instead of a blank page (owner spec 2026-06-11).
+              if (count == 0 && homeState.reqStateLive.isLoaded)
+                const SliverToBoxAdapter(child: _NoLivesNow()),
+
+              // ALWAYS the big-cover live grid. The audio tabs' admin toggle
+              // (isShowGridView) must not restyle broadcasts into audio-room
+              // rows — a lives list is cover cards, period (owner 2026-06-12).
+              if (count > 0 && homeState.reqStateLive.isLoaded)
+                SliverPadding(
+                  padding: context.paddingSymmetric(horizontal: 10),
+                  sliver: SliverGrid.builder(
+                    itemCount: count,
+                    gridDelegate: _gridDelegate,
+                    itemBuilder: (context, index) {
+                      final room = rooms[index];
+                      return RepaintBoundary(
+                        child: Theme2RoomCard(
+                          key: ValueKey('theme2_${room.id}'),
+                          roomEntity: room,
+                          onTap: () => _enterLive(context, room),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+              if (homeState.isPaginatingLive)
+                const SliverToBoxAdapter(child: CircleLoadingWidget()),
+
+              SliverToBoxAdapter(child: 80.hBox),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+
+/// Pretty empty state for the lives list: no one is live right now — be the
+/// first to go live and invite your friends. CTA opens the go-live flow.
+class _NoLivesNow extends StatelessWidget {
+  const _NoLivesNow();
+
+  @override
+  Widget build(BuildContext context) {
+    final ar = Methods.getLang() == 'ar';
+    return Padding(
+      padding: context.paddingSymmetric(horizontal: 24, vertical: 60),
+      child: Column(
+        children: [
+          Container(
+            padding: context.paddingAll(22),
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: ColorManager.primary.withValues(alpha: 0.12),
+            ),
+            child: Icon(Icons.podcasts,
+                size: 56.sp, color: ColorManager.primary),
+          ),
+          18.hBox,
+          TextWidget(
+            ar
+                ? 'لا يوجد بث مباشر متاح الآن'
+                : 'No live broadcasts right now',
+            style: context.bodyLarge.w700
+                .colorExt(ColorManager.theme2TextPrimary)
+                .size(17),
+            textAlign: TextAlign.center,
+          ),
+          8.hBox,
+          TextWidget(
+            ar
+                ? 'كن أول من يبدأ البث المباشر وادعُ أصدقاءك! 🎥✨'
+                : 'Be the first to go live and invite your friends! 🎥✨',
+            style: context.bodyMedium
+                .colorExt(ColorManager.theme2TextPrimary.withValues(alpha: 0.7)),
+            textAlign: TextAlign.center,
+          ),
+          22.hBox,
+          ButtonWidget(
+            onPressed: () {
+              final rooms = di<FetchMyRoomDataBloc>().state.rooms;
+              GoLiveFlow.startLive(context, rooms?.live);
+            },
+            title: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.videocam_rounded,
+                    color: ColorManager.buttonTextColor, size: 20.sp),
+                8.wBox,
+                TextWidget(
+                  ar ? 'ابدأ بثك الآن' : 'Go live now',
+                  style: context.bodyMedium.w700
+                      .colorExt(ColorManager.buttonTextColor),
+                ),
+              ],
+            ),
+            backgroundColor: ColorManager.primary,
+            width: 200.w,
+            height: 46.h,
+            radius: 23,
+          ),
+        ],
+      ),
+    );
+  }
+}

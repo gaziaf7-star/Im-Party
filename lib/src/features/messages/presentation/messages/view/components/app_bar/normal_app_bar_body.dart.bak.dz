@@ -1,0 +1,108 @@
+part of 'package:general/src/features/messages/presentation/messages/view/messages_page.dart';
+
+class _NormalAppBarBody extends StatelessWidget {
+  final MessagesParameter params;
+  const _NormalAppBarBody({required this.params});
+
+  /// "آخر ظهور ..." with the same relative format used elsewhere; falls back to
+  /// "غير متصل" when the last-seen is unknown.
+  String _lastSeenLabel(String? iso) {
+    final rel = RelativeTime.fromIso(iso);
+    if (rel == null) return StringManager.offline.tr();
+    return 'آخر ظهور $rel';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        IconButton(
+          onPressed: () => Navigator.pop(context),
+          icon: Icon(
+            Icons.arrow_back_ios,
+            size: 18.5.h,
+            color: ColorManager.iconColor,
+          ),
+        ),
+        // Avatar opens the quick-view sheet (same UX as the chat list rows),
+        // not the full profile directly — matches the unified profile policy.
+        // Uses UserImage so users without a picture see their initials avatar
+        // (NOT the black app logo) — same image they show everywhere else.
+        GestureDetector(
+          onTap: () => showContactQuickView(
+            context,
+            name: params.name,
+            image: params.image,
+            userId: params.userId,
+            hasColorName: params.hasColorName,
+            onMessage: () {/* already on this chat */},
+          ),
+          child: ClipOval(
+            child: UserImage(
+              image: params.image,
+              displayName: params.name,
+              imageSize: 40,
+            ),
+          ),
+        ),
+        10.wBox,
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextWidget(
+                params.name,
+                style: context.bodyMedium.w600.colorExt(ColorManager.textPrimary),
+              ),
+              5.hBox,
+              BlocBuilder<UserOnlineBloc, UserOnlineState>(
+                bloc: di<UserOnlineBloc>(),
+                // Rebuild on both flags: `online` flips the label, `lastSeen`
+                // advances as the polled presence refreshes.
+                buildWhen: (prev, curr) =>
+                    prev.online != curr.online ||
+                    prev.lastSeen != curr.lastSeen,
+                builder: (context, state) {
+                  // The shared 30s ticker re-renders the relative "آخر ظهور منذ
+                  // N دقيقة" label even when the bloc state is unchanged, so the
+                  // header stays current while the chat is open.
+                  return ListenableBuilder(
+                    listenable: RelativeTimeTicker.instance,
+                    builder: (context, _) {
+                      return Row(
+                        children: [
+                          // Container(
+                          //   height: 10,
+                          //   width: 10,
+                          //   decoration: BoxDecoration(
+                          //     shape: BoxShape.circle,
+                          //     color: state.online == 0
+                          //         ? Colors.grey
+                          //         : Colors.green.shade800,
+                          //   ),
+                          // ),
+                          // 5.wBox,
+                          TextWidget(
+                            state.online != 0
+                                ? StringManager.online.tr()
+                                : _lastSeenLabel(state.lastSeen),
+                            isTranslate: false,
+                            style: context.bodySmall.colorExt(
+                              state.online == 0
+                                  ? ColorManager.secondaryText
+                                  : Colors.green.shade800,
+                            ),
+                          ),
+                        ],
+                      );
+                    },
+                  );
+                },
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
