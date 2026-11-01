@@ -15,9 +15,11 @@ class DeleteScreen extends StatelessWidget {
       buildWhen: (prev, curr) => false,
       builder: (context, state) {
         return Scaffold(
+          backgroundColor: Colors.white,
           appBar: AppBar(
             elevation: 0,
             backgroundColor: ColorManager.transparent,
+            foregroundColor: ColorManager.black,
             centerTitle: true,
             title: Text(StringManager.deleteFamily.tr()),
             leading: InkWell(

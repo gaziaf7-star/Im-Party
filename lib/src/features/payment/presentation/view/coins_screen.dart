@@ -94,59 +94,50 @@ class CoinsScreenState extends State<CoinsScreen>
             ? ColorManager.coinsAccent
             : ColorManager.diamondsAccent;
         return Scaffold(
-          backgroundColor: ColorManager.white,
-          // Was `false` -- that stopped this screen from resizing when the
-          // keyboard opens, so a focused field (Withdraw/Exchange amount,
-          // account number, etc.) could end up hidden behind the keyboard
-          // with no way to scroll it into view. `true` (the Scaffold
-          // default) lets the body shrink so the Withdraw/Exchange forms'
-          // own scroll views can bring the focused field above the
-          // keyboard, per request.
+          backgroundColor: const Color(0xFFF3F4F7),
           resizeToAvoidBottomInset: true,
           appBar: AppBarWidget(
-            iconColor: ColorManager.white,
-            backgroundGradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [accentColor, accentColor.withValues(alpha: 0.75)],
-            ),
-            title: StringManager.rechargeCoins.tr(),
+            backgroundColor: ColorManager.white,
+            iconColor: const Color(0xFF1C1C1E),
+            title: StringManager.wallet,
             titleStyle: context.bodyMedium
-                .size(18)
-                .w600
-                .colorExt(ColorManager.white),
+                .size(20)
+                .w800
+                .colorExt(const Color(0xFF1C1C1E)),
             actions: [
               Padding(
-                padding: EdgeInsets.symmetric(horizontal: 12.0.w),
-                child: InkWell(
-                  borderRadius: BorderRadius.circular(16),
-                  onTap: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => const ResellerDirectoryPage(),
-                      ),
-                    );
-                  },
+                padding: EdgeInsets.only(right: 14.w),
+                child: GestureDetector(
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const ResellerDirectoryPage(),
+                    ),
+                  ),
                   child: Container(
-                    padding: context.paddingSymmetric(
-                        horizontal: 12, vertical: 6),
+                    padding: EdgeInsets.symmetric(
+                        horizontal: 14.w, vertical: 6.h),
                     decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(16.r),
                       gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: resellerVipGradient,
+                        colors: [Color(0xFFFFB25B), Color(0xFFF07A2C)],
                       ),
-                      border: Border.all(color: const Color(0xFFD4A94A)),
-                      boxShadow: const [
-                        BoxShadow(color: Color(0x66D4A94A), blurRadius: 6),
+                      boxShadow: [
+                        BoxShadow(
+                          color:
+                              const Color(0xFFF07A2C).withValues(alpha: 0.3),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
                       ],
                     ),
-                    child: TextWidget(
-                      StringManager.top.tr(),
-                      style: context.bodySmall.w700
-                          .colorExt(Colors.white),
+                    child: Text(
+                      'Reseller',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
                 ),

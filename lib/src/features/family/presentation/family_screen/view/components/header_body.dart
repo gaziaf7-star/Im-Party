@@ -40,7 +40,7 @@ class _HeaderBody extends StatelessWidget {
                         child: Text(
                           familyEntity?.name ?? "",
                           style: context.bodyMedium.w600
-                              .colorExt(ColorManager.textPrimary),
+                              .colorExt(ColorManager.momentPostTextColor),
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
@@ -50,7 +50,7 @@ class _HeaderBody extends StatelessWidget {
                           TextWidget(
                             "ID: ${familyEntity?.id ?? 0}",
                             style: context.bodyMedium
-                                .colorExt(ColorManager.textPrimary
+                                .colorExt(ColorManager.momentPostTextColor
                                     .withValues(alpha: (0.7)))
                                 .w400
                                 .size(10),

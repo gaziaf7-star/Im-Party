@@ -49,7 +49,7 @@ class ProfileVisitorsIcon extends StatelessWidget {
             // Fixed white — this icon now always sits on the Chats page's
             // Home-style gradient band, not the panel's textPrimary.
             child: FaIcon(FontAwesomeIcons.shoePrints,
-                color: ColorManager.homeHeaderTextColor, size: 20),
+                color: Colors.black, size: 20),
           ),
           tooltip: StringManager.visitors.tr(),
         );

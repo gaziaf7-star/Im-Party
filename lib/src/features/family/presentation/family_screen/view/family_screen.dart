@@ -113,6 +113,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
               buildWhen: (prev, curr) => prev.reqState != curr.reqState || prev.showFamilyEntity != curr.showFamilyEntity,
               builder: (context, state) {
                 return Scaffold(
+                  backgroundColor: Colors.white,
                   body: HandlingDataWidget(
                     reqState: state.reqState,
                     title: StringManager.someThingWentWrong.tr(),
@@ -126,12 +127,12 @@ class _FamilyScreenState extends State<FamilyScreen> {
                           expandedHeight: ScreenUtil().screenHeight * 0.35,
                           automaticallyImplyLeading: false,
                           systemOverlayStyle: SystemUiOverlayStyle.dark,
-                          backgroundColor: ColorManager.scaffoldBg,
+                          backgroundColor: Colors.white,
                           title: TextWidget(
                             StringManager.family.tr(),
                             style: context.bodyLarge.w600.colorExt(
                                 (_showTitle == true)
-                                    ? ColorManager.textPrimary
+                                    ? ColorManager.momentPostTextColor
                                     : ColorManager.onDark),
                           ),
                           leading: IconButton.filled(
@@ -143,7 +144,7 @@ class _FamilyScreenState extends State<FamilyScreen> {
                             icon: Icon(
                               Icons.arrow_back_ios,
                               size: 18.5.h,
-                              color: ColorManager.textPrimary,
+                              color: ColorManager.momentPostTextColor,
                             ),
                           ),
                           centerTitle: true,

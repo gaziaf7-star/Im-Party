@@ -23,6 +23,12 @@ class UTDChatController {
   /// [UTDRoomController] to drop non-privileged senders while locked.
   bool Function(String senderUserId)? canReceiveChatFrom;
 
+  /// App-level incoming chat gate (the room's Comment Lock with its allow
+  /// list). Returning `false` drops the message. Static so it outlives each
+  /// room's controller; [dispose] does not clear it.
+  static bool Function(String senderUserId, Map<String, dynamic> userData)?
+      appReceiveGate;
+
   /// Cap on retained chat messages. In long-lived rooms the list otherwise
   /// grows unbounded, leaking memory and slowing every list rebuild.
   static const int _maxMessages = 300;
@@ -82,6 +88,10 @@ class UTDChatController {
     // Defensive comment-lock gate: drop chat from non-privileged senders while
     // locked (a well-behaved client won't send it, but a tampered one might).
     if (canReceiveChatFrom != null && !canReceiveChatFrom!(msg.senderUserId)) {
+      return;
+    }
+    if (appReceiveGate != null &&
+        !appReceiveGate!(msg.senderUserId, msg.userData)) {
       return;
     }
 

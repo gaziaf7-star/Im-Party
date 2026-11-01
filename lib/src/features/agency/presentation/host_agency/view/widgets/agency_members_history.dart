@@ -24,9 +24,10 @@ class _AgencyMembersHistoryScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBarWidget(
         title: StringManager.record2.tr().toUpperCase(),
-        backgroundColor: ColorManager.scaffoldBg,
+        backgroundColor: Colors.white,
       ),
       body: BlocBuilder<AgencyRequestsBloc, AgencyRequestsState>(
         bloc: di<AgencyRequestsBloc>(),
@@ -50,12 +51,13 @@ class _AgencyMembersHistoryScreenState
               child: ListView.separated(
                 controller:
                     di<AgencyRequestsBloc>().state.recordScrollController,
-                padding: context.paddingZero(),
+                padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 8.h),
                 physics: const AlwaysScrollableScrollPhysics(),
                 itemBuilder: (BuildContext context, int index) =>
-                    UserRowRecord(userDataModel: state.recordsList![index]),
+                    UserRowRecord(userDataModel: state.recordsList![index])
+                        .agencyEntrance(index),
                 separatorBuilder: (BuildContext context, int index) {
-                  return 10.hBox;
+                  return 4.hBox;
                 },
                 itemCount: state.recordsList?.length ?? 0,
               ),

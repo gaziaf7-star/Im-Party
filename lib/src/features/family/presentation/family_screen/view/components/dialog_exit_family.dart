@@ -65,6 +65,9 @@ Future<void> _showExitFamilyDialog(BuildContext context) {
   return showDialog(
     context: context,
     builder: (context) => AnimatedDialog(
+      dialogBackgroundColor: Colors.white,
+      titleColor: ColorManager.black,
+      descriptionColor: ColorManager.black,
       title: StringManager.exitFamily.tr(),
       description: StringManager.areYouSureToLeaveTheFamily.tr(),
       onTap: () {
@@ -118,7 +121,7 @@ Future<void> _showExitFamilyDialog(BuildContext context) {
   //                 child: Center(
   //                   child: TextWidget(
   //                     StringManager.done,
-  //                     style: context.bodyMedium.w600.colorExt(ColorManager.textPrimary),
+  //                     style: context.bodyMedium.w600.colorExt(ColorManager.momentPostTextColor),
   //                   ),
   //                 ),
   //               ),

@@ -1,12 +1,73 @@
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
+import 'package:flutter_svga/flutter_svga.dart';
+import 'package:general/src/core/cache/image_cache_manager.dart';
+import 'package:general/src/core/cache/svga_movie_cache.dart';
 import 'package:general/src/core/index.dart';
 import 'package:general/src/core/widgets/GradientLoader.dart';
 import 'package:general/src/core/widgets/bottom_dialog.dart';
 import 'package:general/src/features/room/room.dart';
 
 import 'rocket_realtime_controller.dart';
+
+part 'rocket_sheet_ui.dart';
+
+/// Keeps the last rocket data (and warms the images) per room so the sheet
+/// opens instantly instead of showing a loader while the pictures download.
+class _RocketCache {
+  _RocketCache._();
+
+  static final Map<String, Map<String, dynamic>> home = {};
+  static final Map<String, List<Map<String, dynamic>>> ranking = {};
+  static final Set<String> _warmed = {};
+  static bool _svgaWarm = false;
+
+  static const Set<String> _imageKeys = {
+    'rocket_image',
+    'rocket_image_url',
+    'platform_image',
+    'image',
+    'show_image',
+    'icon',
+    'icon_url',
+    'launch_animation',
+  };
+
+  static void _collect(dynamic node, Set<String> out) {
+    if (node is Map) {
+      node.forEach((k, v) {
+        if (v is String && _imageKeys.contains(k) && v.trim().isNotEmpty) {
+          if (!v.toLowerCase().endsWith('.svga')) out.add(v.trim());
+        } else {
+          _collect(v, out);
+        }
+      });
+    } else if (node is List) {
+      for (final e in node) {
+        _collect(e, out);
+      }
+    }
+  }
+
+  /// Downloads every rocket / reward picture into the app's disk cache.
+  static void warm(Map<String, dynamic> data) {
+    RocketRealtimeController.instance.prepareFromRocket(data['rocket']);
+    if (!_svgaWarm) {
+      _svgaWarm = true;
+      SvgaMovieCache.instance.loadFromAsset(AssetsManager.rocketLaunchpadSvga);
+    }
+    final urls = <String>{};
+    _collect(data, urls);
+    for (final raw in urls) {
+      final u = RocketRealtimeController.mediaUrl(raw);
+      if (_warmed.add(u)) {
+        AssetCacheManager().getCachedAsset(u).catchError((_) => null);
+      }
+    }
+  }
+}
 
 /// Phase 1 of the Rocket room-reward mini-game: the bottom sheet showing the
 /// current rocket session (stage/progress/levels), contribution ranking, and
@@ -110,6 +171,10 @@ class _RocketCarouselIconState extends State<RocketCarouselIcon> {
           : <String, dynamic>{};
       final rocket =
       home['rocket'] is Map ? Map<String, dynamic>.from(home['rocket']) : null;
+      if (home.isNotEmpty) {
+        _RocketCache.home[roomId] = home;
+        _RocketCache.warm(home);
+      }
       if (!mounted || rocket == null) return;
       _applyRocket(rocket);
     } catch (_) {
@@ -152,8 +217,7 @@ class _RocketCarouselIconState extends State<RocketCarouselIcon> {
 
 Future<void> showRocketBottomSheet(BuildContext context) async {
   final screenHeight = MediaQuery.sizeOf(context).height;
-  // Same height formula as the reference app's rocket sheet.
-  final sheetHeight = (screenHeight * .82).clamp(620.0, 860.0).toDouble();
+  final sheetHeight = (screenHeight * .66).clamp(520.0, 1000.0).toDouble();
   await bottomDailog(
     context: context,
     height: sheetHeight,
@@ -175,10 +239,23 @@ class _RocketBottomSheetState extends State<RocketBottomSheet> {
   // null = follow the room's actual active level; set once the user taps a
   // level card in the rail so the Reward panel below switches with it too.
   int? _selectedLevelIndex;
+  final ScrollController _scroll = ScrollController();
+  final ValueNotifier<double> _scrollY = ValueNotifier<double>(0);
+  final GlobalKey _rewardKey = GlobalKey();
 
   @override
   void initState() {
     super.initState();
+    _scroll.addListener(() {
+      if (_scroll.hasClients) _scrollY.value = _scroll.offset;
+    });
+    final cachedRoomId = RoomData.instance.room.id?.toString() ?? '';
+    final cachedHome = _RocketCache.home[cachedRoomId];
+    if (cachedHome != null) {
+      _home = cachedHome;
+      _ranking = _RocketCache.ranking[cachedRoomId] ?? [];
+      _loading = false;
+    }
     _fetch();
     // Keep the open sheet's progress bar/level in sync with realtime
     // broadcasts too, not just the initial REST fetch (on request -- "gift
@@ -248,6 +325,10 @@ class _RocketBottomSheetState extends State<RocketBottomSheet> {
           rankingBody['contributors'] ??
           rankingBody['items'] ??
           home['ranking']);
+      _RocketCache.home[roomId] = home;
+      _RocketCache.ranking[roomId] = ranking;
+      _RocketCache.warm(home);
+      _logRocketMedia(home);
       if (!mounted) return;
       setState(() {
         _home = home;
@@ -261,6 +342,26 @@ class _RocketBottomSheetState extends State<RocketBottomSheet> {
             '⚠️ [Rocket] status=${e.response?.statusCode} body=${e.response?.data}');
       }
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  /// Prints every picture / animation URL the rocket API returned, with the
+  /// key it came under, so the rocket image and the launch animation can be
+  /// told apart in the log.
+  void _logRocketMedia(dynamic node, [String path = 'rocket']) {
+    final mediaExt = RegExp(r'\.(png|jpe?g|webp|gif|svga|json|mp4|webm)(\?|$)',
+        caseSensitive: false);
+    if (node is Map) {
+      node.forEach((k, v) => _logRocketMedia(v, '$path.$k'));
+    } else if (node is List) {
+      for (var i = 0; i < node.length; i++) {
+        _logRocketMedia(node[i], '$path[$i]');
+      }
+    } else if (node is String && mediaExt.hasMatch(node)) {
+      final fixed = RocketRealtimeController.mediaUrl(node);
+      Methods.printLog(fixed == node
+          ? '🚀 [Rocket] $path = $node'
+          : '🚀 [Rocket] $path = $node -> $fixed');
     }
   }
 
@@ -318,74 +419,135 @@ class _RocketBottomSheetState extends State<RocketBottomSheet> {
   Map<String, dynamic>? get _selectedLevel =>
       _levels.isNotEmpty ? _levels[_resolvedSelectedIndex] : _activeLevel;
 
+  String _levelImageOf(Map<String, dynamic> lv) => (lv['rocket_image'] ??
+          lv['rocket_image_url'] ??
+          lv['platform_image'] ??
+          lv['image'] ??
+          lv['show_image'] ??
+          lv['icon'] ??
+          '')
+      .toString();
+
+  int _levelNoOf(Map<String, dynamic> lv) => _asInt(lv['level_no'] ?? lv['id']);
+
+  void _openHelp() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0B2365),
+        title: const Text('Rocket', style: TextStyle(color: Colors.white)),
+        content: const Text(
+          'Send gifts in this room to fill the rocket. When the rocket '
+          'reaches the target it launches and the TOP contributors, the room '
+          'owner and the launcher receive the rewards of that level.',
+          style: TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    final levels = _levels;
+    final sel = _resolvedSelectedIndex;
+    final selLevel = _selectedLevel;
+    final active = _activeLevel;
+    final activeNo = active != null ? _levelNoOf(active) : (sel + 1);
+    final stageImage = selLevel != null ? _levelImageOf(selLevel) : _rocketImage;
+    final headerH = 66.h;
+
     return Container(
-      // Top half stays transparent so the room's video/audio background
-      // shows through behind the sheet; the panel colour only fades in for
-      // the lower half (on request). Recoloured to the same royal-blue as
-      // the Reward/Ranking cards, instead of the old teal, so the whole
-      // sheet matches the cards (on request).
       decoration: const BoxDecoration(
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
           colors: [
             Color(0x00111A46),
-            Color(0x55122562),
+            Color(0x66122562),
             Color(0xEE102E78),
             Color(0xFF0B2365),
             Color(0xFF06143E),
           ],
-          stops: [0.0, 0.28, 0.48, 0.72, 1.0],
+          stops: [0.0, 0.18, 0.40, 0.70, 1.0],
         ),
       ),
-      child: SafeArea(
-        top: false,
-        child: Column(
-          children: [
-            10.hBox,
-            Container(
-              width: 40.w,
-              height: 4.h,
-              decoration: BoxDecoration(
-                color: ColorManager.white.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.circular(4.r),
-              ),
-            ),
-            10.hBox,
-            Expanded(
-              child: _loading
-                  ? const Center(child: GradientLoader(size: 26))
-              // Everything stacked on one scrollable page -- stage on
-              // top, reward panel next, ranking below that -- matching
-              // the reference screenshot instead of separate tabs.
-                  : SingleChildScrollView(
-                padding: context.paddingOnly(bottom: 16),
-                child: Column(
-                  children: [
-                    _StageTab(
-                      levels: _levels,
-                      activeLevel: _activeLevel,
-                      rocketImage: _rocketImage,
-                      progressCoins: _progressCoins,
-                      targetCoins: _targetCoins,
-                      progressPercent: _progressPercent,
-                      remainingSeconds: _remainingSeconds,
-                      selectedIndex: _resolvedSelectedIndex,
-                      onSelectIndex: (i) =>
-                          setState(() => _selectedLevelIndex = i),
+      child: Stack(
+        children: [
+          Positioned.fill(
+            child: _loading
+                ? const Center(child: GradientLoader(size: 26))
+                : SingleChildScrollView(
+                    controller: _scroll,
+                    physics: const BouncingScrollPhysics(),
+                    padding: EdgeInsets.only(bottom: 24.h),
+                    child: Column(
+                      children: [
+                        SizedBox(height: headerH),
+                        _RocketScene(
+                          rocketImage: stageImage,
+                          levels: levels,
+                          selectedIndex: sel,
+                          imageOf: _levelImageOf,
+                          levelNoOf: _levelNoOf,
+                          onSelect: (i) => setState(() => _selectedLevelIndex = i),
+                          level: activeNo,
+                          nextLevel: activeNo + 1,
+                          percent: _progressPercent,
+                          remainingSeconds: _remainingSeconds,
+                        ),
+                        10.hBox,
+                        Padding(
+                          key: _rewardKey,
+                          padding: EdgeInsets.symmetric(horizontal: 14.w),
+                          child: _RocketRewardPanel(level: selLevel),
+                        ),
+                        10.hBox,
+                        Padding(
+                          padding: EdgeInsets.symmetric(horizontal: 14.w),
+                          child: _RocketWinners(level: selLevel, ranking: _ranking),
+                        ),
+                        24.hBox,
+                      ],
                     ),
-                    10.hBox,
-                    _RewardTab(level: _selectedLevel),
-                    12.hBox,
-                    _RankingTab(ranking: _ranking),
-                  ],
-                ),
+                  ),
+          ),
+          // Pinned header: transparent over the scene, solid once scrolled.
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            child: ValueListenableBuilder<double>(
+              valueListenable: _scrollY,
+              builder: (context, y, child) {
+                final t = (y / 140).clamp(0.0, 1.0);
+                return Container(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(20.r)),
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color.lerp(const Color(0x00102E78), const Color(0xFF0E2A75), t)!,
+                        Color.lerp(const Color(0x00102E78), const Color(0xF20B2365), t)!,
+                      ],
+                    ),
+                  ),
+                  child: child,
+                );
+              },
+              child: _RocketHeader(
+                onHelp: _openHelp,
+                onClose: () => Navigator.pop(context),
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
@@ -1119,6 +1281,8 @@ class _TimeSeparator extends StatelessWidget {
   }
 }
 
+// Not shown in the sheet for now (the trophy button was removed), kept for later.
+// ignore: unused_element
 class _RankingTab extends StatelessWidget {
   final List<Map<String, dynamic>> ranking;
 
@@ -1257,8 +1421,9 @@ class _RankRow extends StatelessWidget {
           ),
           8.wBox,
           UserImage(
-            image: (u?['profile_image'] ?? u?['avatar'] ?? u?['image'] ?? '')
-                .toString(),
+            image: RocketRealtimeController.profileUrl(
+                u?['profile_image'] ?? u?['avatar'] ?? u?['image'],
+                log: false),
             displayName: name,
             imageSize: 38.w,
             uniquId: '${u?['id'] ?? rank}',

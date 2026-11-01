@@ -75,7 +75,10 @@ class CardFamilyMemberWidget extends StatelessWidget {
                     child: TextWidget(
                       type!,
                       style: context.bodySmall.copyWith(
-                          color: ColorManager.textPrimary, fontSize: 10),
+                          // White on the primary-coloured Owner/Admin chip.
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.w600),
                     ),
                   ),
                 ),

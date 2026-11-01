@@ -30,6 +30,8 @@ class GiftPerDayModel extends GiftPerDayEntity {
   });
 
   factory GiftPerDayModel.fromJson(Map<String, dynamic> json) {
+    // TEMP debug: what the server really sends for each day's reward.
+    debugPrint('[DAILY_IMG] day=${json['day']} raw=$json');
     return GiftPerDayModel(
       day: parseValue<int>(json['day'], 0),
       gift: GiftModel.fromJson(

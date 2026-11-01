@@ -71,85 +71,169 @@ class _MyRoomCardState extends State<MyRoomCard> {
           ),
         );
       },
-      child: Stack(
-        children: [
-          Container(
-            padding: context.paddingSymmetric(horizontal: 15, vertical: 15),
-            margin: context.paddingSymmetric(vertical: 0, horizontal: 10),
-            decoration: BoxDecoration(
-              borderRadius: 15.radius,
-              // Fixed brand gradient (was a green background PNG), on
-              // request.
-              gradient: ColorManager.brandGradient,
+      child: Container(
+        margin: EdgeInsets.symmetric(horizontal: 12.w),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(18.r),
+          gradient: const LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [Color(0xFF6A2BF2), Color(0xFFB032E8), Color(0xFFF2459E)],
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFB032E8).withValues(alpha: 0.35),
+              blurRadius: 14,
+              offset: const Offset(0, 6),
             ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [
-                UserImage(
-                  image: room.cover,
-                  displayName: room.name,
-                  imageSize: 75.w,
-                  borderRadius: 8.radius,
-                ),
-                10.wBox,
-                SizedBox(
-                  width: 200.w,
-                  child: TextWidget(
-                    room.name,
-                    maxLines: 1,
-                    // Fixed white (was the panel-driven textPrimary) --
-                    // guaranteed to read on the fixed gradient above.
-                    style: context.bodyMedium
-                        .size(14)
-                        .w600
-                        .colorExt(ColorManager.onBrandGradient),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const Spacer(),
-                Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    VisitorsCount(
-                      count: room.visitorsCount.toString(),
-                      fontSize: 15.sp,
-                      fontWeight: FontWeight.w500,
-                      isList: true,
-                    ),
-                    if (room.roomLevelImage != "")
-                      ImageViewWidget(
-                        url: room.roomLevelImage,
-                        boxFit: BoxFit.contain,
-                        width: 34.w,
-                        height: 18.h,
+          ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(18.r),
+          child: CustomPaint(
+            // Soft pattern in the background + gold flourishes in the four
+            // corners.
+            painter: const _RoomCardOrnamentPainter(),
+            child: Padding(
+              padding: EdgeInsets.fromLTRB(16.w, 16.h, 16.w, 14.h),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(2),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(12.r),
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFFFFE9A8), Color(0xFFF5B521)],
+                          ),
+                        ),
+                        child: UserImage(
+                          image: room.cover,
+                          displayName: room.name,
+                          imageSize: 68.w,
+                          borderRadius: 10.radius,
+                        ),
                       ),
+                      12.wBox,
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(
+                                    room.name,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 16.sp,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                                6.wBox,
+                                Container(
+                                  padding: EdgeInsets.symmetric(
+                                      horizontal: 8.w, vertical: 2.h),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.22),
+                                    borderRadius: BorderRadius.circular(10.r),
+                                  ),
+                                  child: Text(
+                                    type == "audio" ? "Audio" : "Live",
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 10.sp,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            4.hBox,
+                            Text(
+                              "ID: ${room.roomId.isNotEmpty ? room.roomId : room.id}",
+                              style: TextStyle(
+                                color: Colors.white.withValues(alpha: 0.85),
+                                fontSize: 12.sp,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                            6.hBox,
+                            Row(
+                              children: [
+                                VisitorsCount(
+                                  count: room.visitorsCount.toString(),
+                                  fontSize: 13.sp,
+                                  fontWeight: FontWeight.w600,
+                                  isList: true,
+                                ),
+                                if (room.roomLevelImage != "") ...[
+                                  8.wBox,
+                                  ImageViewWidget(
+                                    url: room.roomLevelImage,
+                                    boxFit: BoxFit.contain,
+                                    width: 34.w,
+                                    height: 18.h,
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded,
+                          color: Colors.white.withValues(alpha: 0.85),
+                          size: 24.sp),
+                    ],
+                  ),
+                  // Room announcement.
+                  if (room.roomIntro.trim().isNotEmpty) ...[
+                    12.hBox,
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(
+                          horizontal: 10.w, vertical: 7.h),
+                      decoration: BoxDecoration(
+                        color: Colors.black.withValues(alpha: 0.18),
+                        borderRadius: BorderRadius.circular(10.r),
+                        border: Border.all(
+                          color: const Color(0xFFFFE9A8)
+                              .withValues(alpha: 0.45),
+                          width: 0.8,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.campaign_rounded,
+                              color: const Color(0xFFFFE07A), size: 16.sp),
+                          6.wBox,
+                          Expanded(
+                            child: SizedBox(
+                              height: 18.h,
+                              child: AutoScrollText(
+                                text: room.roomIntro.trim(),
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12.sp,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
-                ),
-              ],
-            ),
-          ),
-          Align(
-            alignment: AlignmentDirectional.topEnd,
-            child: Container(
-              padding: context.paddingSymmetric(horizontal: 10),
-              margin: context.paddingOnly(top: 4, end: 15),
-              decoration: BoxDecoration(
-                color: ColorManager.black.withValues(alpha: 0.4),
-                borderRadius: BorderRadius.only(
-                  topRight: 8.radiusCircular,
-                  bottomLeft: 15.radiusCircular,
-                ),
-              ),
-              child: TextWidget(
-                type == "audio" ? "Audio" : "Live",
-                // Fixed white (was the panel-driven textPrimary) -- this pill
-                // is always a fixed dark overlay, so its text needs a fixed
-                // color too.
-                style: context.bodySmall.colorExt(ColorManager.white),
+                ],
               ),
             ),
           ),
-        ],
+        ),
       ),
     );
   }
@@ -233,4 +317,63 @@ class _MyRoomCardState extends State<MyRoomCard> {
       ),
     );
   }
+}
+/// Light lattice pattern across the card and gold flourishes in its four
+/// corners.
+class _RoomCardOrnamentPainter extends CustomPainter {
+  const _RoomCardOrnamentPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    // Diamond lattice.
+    final lattice = Paint()
+      ..color = Colors.white.withValues(alpha: 0.07)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1;
+    const step = 22.0;
+    for (double x = -size.height; x < size.width + size.height; x += step) {
+      canvas.drawLine(
+          Offset(x, 0), Offset(x + size.height, size.height), lattice);
+      canvas.drawLine(
+          Offset(x, size.height), Offset(x + size.height, 0), lattice);
+    }
+
+    // Soft glow circles.
+    final glow = Paint()..color = Colors.white.withValues(alpha: 0.06);
+    canvas.drawCircle(Offset(size.width * 0.85, size.height * 0.15), 46, glow);
+    canvas.drawCircle(Offset(size.width * 0.08, size.height * 0.95), 34, glow);
+
+    // Gold corner flourishes.
+    final gold = Paint()
+      ..shader = const LinearGradient(
+        colors: [Color(0xFFFFF1B0), Color(0xFFF2B63A)],
+      ).createShader(Offset.zero & size)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round;
+    final dot = Paint()..color = const Color(0xFFFFE07A);
+    const arm = 22.0, inset = 6.0, curl = 7.0;
+    for (final corner in [
+      (inset, inset, 1.0, 1.0),
+      (size.width - inset, inset, -1.0, 1.0),
+      (inset, size.height - inset, 1.0, -1.0),
+      (size.width - inset, size.height - inset, -1.0, -1.0),
+    ]) {
+      final (x, y, dx, dy) = corner;
+      final path = Path()
+        ..moveTo(x + dx * arm, y)
+        ..lineTo(x + dx * curl, y)
+        ..quadraticBezierTo(x, y, x, y + dy * curl)
+        ..lineTo(x, y + dy * arm)
+        ..moveTo(x + dx * (arm * 0.6), y + dy * 4)
+        ..quadraticBezierTo(
+            x + dx * 4, y + dy * 4, x + dx * 4, y + dy * (arm * 0.6));
+      canvas.drawPath(path, gold);
+      canvas.drawCircle(Offset(x + dx * (arm + 3), y), 1.8, dot);
+      canvas.drawCircle(Offset(x, y + dy * (arm + 3)), 1.8, dot);
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _RoomCardOrnamentPainter old) => false;
 }

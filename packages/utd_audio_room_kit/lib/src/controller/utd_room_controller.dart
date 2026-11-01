@@ -119,6 +119,12 @@ class UTDRoomController {
   Stream<UTDRoleChangeEvent> get roleChangeStream =>
       _roleChangeController.stream;
 
+  /// Current room metadata JSON (holds `_seats`), null before connect.
+  String? get roomMetadata => _roomManager.room?.metadata;
+
+  /// Emits the room metadata JSON whenever the backend updates it.
+  Stream<String> get roomMetadataStream => _roomManager.roomMetadataStream;
+
   Stream<Participant> get participantJoinedStream =>
       _roomManager.participantJoinedStream;
 
@@ -207,9 +213,10 @@ class UTDRoomController {
     if (local != null && local.identity == identity && local.name.isNotEmpty) {
       return local.name;
     }
-    final remote = _roomManager.remoteParticipants
-        .where((p) => p.identity == identity)
-        .firstOrNull;
+    final remote =
+        _roomManager.remoteParticipants
+            .where((p) => p.identity == identity)
+            .firstOrNull;
     final name = remote?.name;
     if (name != null && name.isNotEmpty) return name;
     return identity;
@@ -251,8 +258,9 @@ class UTDRoomController {
     UTDRoomMode.defaultMode.id: UTDRoomMode.defaultMode,
   };
 
-  final ValueNotifier<UTDRoomMode> currentMode =
-      ValueNotifier(UTDRoomMode.defaultMode);
+  final ValueNotifier<UTDRoomMode> currentMode = ValueNotifier(
+    UTDRoomMode.defaultMode,
+  );
 
   VoidCallback? _modeIdSyncListener;
 
@@ -337,10 +345,7 @@ class UTDRoomController {
     _appKey = appKey;
     // Only the token client carries X-App-Key (for minting); in-room calls authenticate with the
     // per-user bearer applied after the first generateToken.
-    _apiClient = UTDApiClient(
-      baseUrl: baseUrl,
-      appId: appId,
-    );
+    _apiClient = UTDApiClient(baseUrl: baseUrl, appId: appId);
     _tokenClient = UTDApiClient(
       baseUrl: tokenBaseUrl,
       appId: appId,
@@ -367,9 +372,11 @@ class UTDRoomController {
       unawaited(UTDDeviceId.resolve());
       unawaited(UTDDeviceInfoCollector.collect());
     }
-    debugPrint('[UTDRoomController] API initialized — engine: $baseUrl, '
-        'token: $tokenBaseUrl'
-        '${appId != null ? ', appId: $appId' : ''}');
+    debugPrint(
+      '[UTDRoomController] API initialized — engine: $baseUrl, '
+      'token: $tokenBaseUrl'
+      '${appId != null ? ', appId: $appId' : ''}',
+    );
   }
 
   /// Optional app-side warm-up that makes the NEXT room entry faster. Call it
@@ -467,8 +474,9 @@ class UTDRoomController {
       const Duration(seconds: 2),
       onTimeout: () {
         debugPrint(
-            '[UTDRoomController] previous-room cleanup still running after 2s '
-            '— continuing with connect');
+          '[UTDRoomController] previous-room cleanup still running after 2s '
+          '— continuing with connect',
+        );
       },
     );
 
@@ -487,8 +495,9 @@ class UTDRoomController {
         const Duration(seconds: 2),
         onTimeout: () {
           debugPrint(
-              '[UTDRoomController] same-instance disconnect still running '
-              'after 2s — continuing with connect');
+            '[UTDRoomController] same-instance disconnect still running '
+            'after 2s — continuing with connect',
+          );
         },
       );
     }
@@ -549,7 +558,8 @@ class UTDRoomController {
     // first (reliable data, sent before removeParticipant) it shows the correct
     // "signed in on another device" message instead of a generic removal.
     seatController.onKicked =
-        (data) => _emitBanned(UTDBanNotice.fromKicked(data['reason'] as String?));
+        (data) =>
+            _emitBanned(UTDBanNotice.fromKicked(data['reason'] as String?));
 
     // Route `_role_change` data messages into the role cache + stream.
     seatController.onRoleChanged =
@@ -591,8 +601,9 @@ class UTDRoomController {
 
     // Wire the invitation handler so _speaker_invitation events
     // trigger the full accept/decline + takeSeat + mic flow
-    seatController
-        .setInvitationHandler((data) => handleIncomingInvitation(data));
+    seatController.setInvitationHandler(
+      (data) => handleIncomingInvitation(data),
+    );
 
     chatController.startListening();
     // Listen for RTC mute/unmute events so the controls-bar mic icon
@@ -640,12 +651,14 @@ class UTDRoomController {
             await _roomManager.localParticipant?.setAttributes(userAttributes);
           } catch (e) {
             debugPrint(
-                '[UTDRoomController] setAttributes failed (non-fatal): $e');
+              '[UTDRoomController] setAttributes failed (non-fatal): $e',
+            );
           }
         }
       } catch (e) {
         debugPrint(
-            '[UTDRoomController] post-connect audio setup failed (non-fatal): $e');
+          '[UTDRoomController] post-connect audio setup failed (non-fatal): $e',
+        );
       }
     }
 
@@ -661,7 +674,8 @@ class UTDRoomController {
     _participantJoinedSub = _roomManager.participantJoinedStream.listen((p) {
       if (_disposed || _participantsController.isClosed) return;
       debugPrint(
-          '👤 [VISITORS] participantJoined: ${p.identity} — total: ${participants.length}');
+        '👤 [VISITORS] participantJoined: ${p.identity} — total: ${participants.length}',
+      );
       _emitParticipants();
     });
     _participantLeftSub = _roomManager.participantLeftStream.listen((p) {
@@ -672,23 +686,28 @@ class UTDRoomController {
       // can't outlive them (the cache otherwise wins over live metadata).
       _roleCache.remove(p.identity.toString());
       debugPrint(
-          '👤 [VISITORS] participantLeft: ${p.identity} — total: ${participants.length}');
+        '👤 [VISITORS] participantLeft: ${p.identity} — total: ${participants.length}',
+      );
       _emitParticipants();
     });
-    _participantAttributesChangedSub =
-        _roomManager.participantAttributesChangedStream.listen((p) {
-      if (_disposed || _participantsController.isClosed) return;
-      debugPrint('👤 [VISITORS] participantAttributesChanged: ${p.identity}');
-      _emitParticipants();
-    });
-    _participantMetadataChangedSub =
-        _roomManager.participantMetadataChangedStream.listen((p) {
-      if (_disposed || _participantsController.isClosed) return;
-      // The engine rewrites `role` in metadata on a role change — refresh so
-      // seat badges reflect it even if a `_role_change` message was missed.
-      debugPrint('👤 [VISITORS] participantMetadataChanged: ${p.identity}');
-      _emitParticipants();
-    });
+    _participantAttributesChangedSub = _roomManager
+        .participantAttributesChangedStream
+        .listen((p) {
+          if (_disposed || _participantsController.isClosed) return;
+          debugPrint(
+            '👤 [VISITORS] participantAttributesChanged: ${p.identity}',
+          );
+          _emitParticipants();
+        });
+    _participantMetadataChangedSub = _roomManager
+        .participantMetadataChangedStream
+        .listen((p) {
+          if (_disposed || _participantsController.isClosed) return;
+          // The engine rewrites `role` in metadata on a role change — refresh so
+          // seat badges reflect it even if a `_role_change` message was missed.
+          debugPrint('👤 [VISITORS] participantMetadataChanged: ${p.identity}');
+          _emitParticipants();
+        });
     debugPrint('👤 [VISITORS] initial participants: ${participants.length}');
     _emitParticipants();
 
@@ -707,51 +726,49 @@ class UTDRoomController {
   /// subscription in [connect]), not written here.
   void _startSpeakingPoll() {
     _speakingPollTimer?.cancel();
-    _speakingPollTimer = Timer.periodic(
-      const Duration(milliseconds: 300),
-      (_) {
-        // Guard: bail if the controller was disposed or the room disconnected
-        if (_disposed) return;
+    _speakingPollTimer = Timer.periodic(const Duration(milliseconds: 300), (_) {
+      // Guard: bail if the controller was disposed or the room disconnected
+      if (_disposed) return;
 
-        final local = _roomManager.localParticipant;
-        final remote = _roomManager.remoteParticipants;
-        final all = <Participant>[if (local != null) local, ...remote];
+      final local = _roomManager.localParticipant;
+      final remote = _roomManager.remoteParticipants;
+      final all = <Participant>[if (local != null) local, ...remote];
 
-        try {
-          final muted = <String>{};
-          for (final p in all) {
-            if (!p.isMicrophoneEnabled()) {
-              muted.add(p.identity.toString());
-            }
-          }
-          if (!setEquals(mutedParticipants.value, muted)) {
-            mutedParticipants.value = muted;
-          }
-
-          // Backstop: keep the controls-bar mic icon (mediaController.isMicEnabled)
-          // in sync with the local mic's real state in case a TrackMuted/Unmuted
-          // event was missed (e.g. a host mute that landed during reconnect).
-          // The event-driven sync in UTDMediaController handles the common case
-          // instantly; this just guarantees eventual consistency.
-          if (local != null) {
-            final localMicOn = local.isMicrophoneEnabled();
-            if (mediaController.isMicEnabled.value != localMicOn) {
-              mediaController.isMicEnabled.value = localMicOn;
-            }
-          }
-        } catch (e) {
-          // Suppress "Participant disposed" errors that occur when participants
-          // are cleaned up by the RTC engine while a poll tick fires. This is a harmless
-          // race condition — the timer is cancelled on the next dispose() call.
-          if (e.toString().contains('Participant disposed')) {
-            debugPrint(
-                '[UTDRoomController] Suppressed disposed participant access in poll: $e');
-          } else {
-            rethrow;
+      try {
+        final muted = <String>{};
+        for (final p in all) {
+          if (!p.isMicrophoneEnabled()) {
+            muted.add(p.identity.toString());
           }
         }
-      },
-    );
+        if (!setEquals(mutedParticipants.value, muted)) {
+          mutedParticipants.value = muted;
+        }
+
+        // Backstop: keep the controls-bar mic icon (mediaController.isMicEnabled)
+        // in sync with the local mic's real state in case a TrackMuted/Unmuted
+        // event was missed (e.g. a host mute that landed during reconnect).
+        // The event-driven sync in UTDMediaController handles the common case
+        // instantly; this just guarantees eventual consistency.
+        if (local != null) {
+          final localMicOn = local.isMicrophoneEnabled();
+          if (mediaController.isMicEnabled.value != localMicOn) {
+            mediaController.isMicEnabled.value = localMicOn;
+          }
+        }
+      } catch (e) {
+        // Suppress "Participant disposed" errors that occur when participants
+        // are cleaned up by the RTC engine while a poll tick fires. This is a harmless
+        // race condition — the timer is cancelled on the next dispose() call.
+        if (e.toString().contains('Participant disposed')) {
+          debugPrint(
+            '[UTDRoomController] Suppressed disposed participant access in poll: $e',
+          );
+        } else {
+          rethrow;
+        }
+      }
+    });
   }
 
   Future<void> _cleanupPreviousRoom() async {
@@ -763,7 +780,8 @@ class UTDRoomController {
     _activeController = null;
 
     debugPrint(
-        '[UTDRoomController] Cleaning up previous room before connecting');
+      '[UTDRoomController] Cleaning up previous room before connecting',
+    );
     try {
       if (previous.minimize.isMinimizing) {
         previous.minimize.dismiss();
@@ -786,6 +804,10 @@ class UTDRoomController {
     // would otherwise leave the singleton machine stuck in `minimizing` and
     // every app-wide isMinimizing guard believing a room is still open.
     if (minimize.isMinimizing) minimize.dismiss();
+    // Free our seat BEFORE disconnecting. Relying only on the server's
+    // participant_left cleanup left the user's profile stuck on the seat
+    // after they exited. Short timeout so a slow network never blocks exit.
+    await _leaveSeatAwaited();
     // Stop OS PiP auto-enter — once out of the room, backgrounding must not
     // trigger a system PiP window (enforces the "in-room only" requirement).
     await pip.disarm();
@@ -829,6 +851,19 @@ class UTDRoomController {
           .timeout(const Duration(seconds: 2), onTimeout: () => false)
           .catchError((_) => false),
     );
+  }
+
+  /// Like [_leaveSeatBestEffort] but awaited (max 3s), for a normal exit where
+  /// the request must go out before the connection is torn down.
+  Future<void> _leaveSeatAwaited() async {
+    final id = localIdentity;
+    if (id == null) return;
+    if (seatController.getSeatIndexByUserId(id) < 0) return;
+    try {
+      await seatController
+          .leaveSeat(id)
+          .timeout(const Duration(seconds: 3), onTimeout: () => false);
+    } catch (_) {}
   }
 
   // --- App lifecycle (auto-leave on app kill) -------------------------------
@@ -884,8 +919,10 @@ class UTDRoomController {
   /// post-connect setAttributes in [connect]'s audioSetup for the same rule.
   /// Live profile change of another room member (see
   /// [SeatController.applyRemoteCosmeticOverride]).
-  void applyRemoteCosmeticOverride(String identity, Map<String, String> attrs) =>
-      seatController.applyRemoteCosmeticOverride(identity, attrs);
+  void applyRemoteCosmeticOverride(
+    String identity,
+    Map<String, String> attrs,
+  ) => seatController.applyRemoteCosmeticOverride(identity, attrs);
 
   Future<void> updateSelfAttributes(Map<String, String> attrs) async {
     final local = _roomManager.localParticipant;
@@ -979,9 +1016,10 @@ class UTDRoomController {
       if (_roomManager.localParticipant?.identity == identity) {
         p = _roomManager.localParticipant;
       } else {
-        p = _roomManager.remoteParticipants
-            .where((rp) => rp.identity == identity)
-            .firstOrNull;
+        p =
+            _roomManager.remoteParticipants
+                .where((rp) => rp.identity == identity)
+                .firstOrNull;
       }
       if (p == null) return null;
       final meta = jsonDecode(p.metadata ?? '{}') as Map<String, dynamic>;
@@ -1075,7 +1113,9 @@ class UTDRoomController {
     // costs one hop on the join path, not two. Explicit args still win;
     // neither ever throws.
     final deviceIdFuture =
-        deviceId != null ? Future<String>.value(deviceId) : UTDDeviceId.resolve();
+        deviceId != null
+            ? Future<String>.value(deviceId)
+            : UTDDeviceId.resolve();
     final infoFuture = UTDDeviceInfoCollector.collect();
     final resolvedDeviceId = await deviceIdFuture;
     // Device facts are dashboard cosmetics — never let a cold platform channel
@@ -1122,7 +1162,8 @@ class UTDRoomController {
   /// The room ID used for speaker API calls.
   /// Prefers [seatController.roomId] (set via connect roomName param),
   /// falls back to the RTC room name.
-  String? get _speakerRoomId => seatController.roomId ?? _roomManager.room?.name;
+  String? get _speakerRoomId =>
+      seatController.roomId ?? _roomManager.room?.name;
 
   /// Request to speak (audience in request mode).
   ///
@@ -1154,10 +1195,7 @@ class UTDRoomController {
     if (roomId == null || identity == null) return false;
 
     try {
-      await _speakerApi!.cancelRequest(
-        roomName: roomId,
-        identity: identity,
-      );
+      await _speakerApi!.cancelRequest(roomName: roomId, identity: identity);
       return true;
     } catch (e) {
       debugPrint('[UTDRoomController] cancelSpeakerRequest error: $e');
@@ -1405,11 +1443,13 @@ class UTDRoomController {
           return true;
         }
         debugPrint(
-            '[UTDRoomController] upgradeSelfRole attempt ${attempt + 1} failed: '
-            '${e.response?.statusCode ?? e.type}');
+          '[UTDRoomController] upgradeSelfRole attempt ${attempt + 1} failed: '
+          '${e.response?.statusCode ?? e.type}',
+        );
       } catch (e) {
         debugPrint(
-            '[UTDRoomController] upgradeSelfRole attempt ${attempt + 1} failed: $e');
+          '[UTDRoomController] upgradeSelfRole attempt ${attempt + 1} failed: $e',
+        );
       }
     }
     return false;
@@ -1539,61 +1579,67 @@ class UTDRoomController {
     showDialog(
       context: ctx,
       barrierDismissible: false,
-      builder: (dialogCtx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        title: const Row(
-          children: [
-            Icon(Icons.mic, color: Colors.blue, size: 24),
-            SizedBox(width: 8),
-            Text('Speaker Invitation',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-          ],
-        ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              'Admin ${inviterIdentity ?? ''} invited you to sit on seat #$seatDisplay',
-              textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 15),
+      builder:
+          (dialogCtx) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(16),
             ),
-            // Secondary Arabic line: this dialog is the package's own fallback
-            // and has no localization, so it only renders when the ambient
-            // locale is Arabic instead of on every language.
-            if (Localizations.maybeLocaleOf(dialogCtx)?.languageCode ==
-                'ar') ...[
-              const SizedBox(height: 8),
-              Text(
-                'المشرف ${inviterIdentity ?? ''} دعاك للجلوس على الكرسي رقم $seatDisplay',
-                textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 14, color: Colors.grey),
+            title: const Row(
+              children: [
+                Icon(Icons.mic, color: Colors.blue, size: 24),
+                SizedBox(width: 8),
+                Text(
+                  'Speaker Invitation',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                ),
+              ],
+            ),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  'Admin ${inviterIdentity ?? ''} invited you to sit on seat #$seatDisplay',
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 15),
+                ),
+                // Secondary Arabic line: this dialog is the package's own fallback
+                // and has no localization, so it only renders when the ambient
+                // locale is Arabic instead of on every language.
+                if (Localizations.maybeLocaleOf(dialogCtx)?.languageCode ==
+                    'ar') ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    'المشرف ${inviterIdentity ?? ''} دعاك للجلوس على الكرسي رقم $seatDisplay',
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(fontSize: 14, color: Colors.grey),
+                  ),
+                ],
+              ],
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(dialogCtx).pop();
+                  if (!completer.isCompleted) completer.complete(false);
+                },
+                child: const Text(
+                  'Decline',
+                  style: TextStyle(color: Colors.red),
+                ),
+              ),
+              ElevatedButton(
+                onPressed: () {
+                  Navigator.of(dialogCtx).pop();
+                  if (!completer.isCompleted) completer.complete(true);
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Accept'),
               ),
             ],
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogCtx).pop();
-              if (!completer.isCompleted) completer.complete(false);
-            },
-            child: const Text('Decline', style: TextStyle(color: Colors.red)),
           ),
-          ElevatedButton(
-            onPressed: () {
-              Navigator.of(dialogCtx).pop();
-              if (!completer.isCompleted) completer.complete(true);
-            },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-            ),
-            child: const Text('Accept'),
-          ),
-        ],
-      ),
     ).then((_) {
       if (!completer.isCompleted) completer.complete(false);
     });
@@ -1627,14 +1673,16 @@ class UTDRoomController {
         // Accept via API — backend should auto-seat user on seatIndex
         final result = await acceptInvitation(invitationId);
         debugPrint(
-            '[UTDRoomController] handleIncomingInvitation — accept result: $result');
+          '[UTDRoomController] handleIncomingInvitation — accept result: $result',
+        );
 
         // Check if backend seated the user
         final seatedAt = (result?['seat_index'] as num?)?.toInt();
         if (seatedAt == null && seatIndex != null) {
           // Backend didn't auto-seat — fallback to takeSeat
           debugPrint(
-              '[UTDRoomController] handleIncomingInvitation — fallback takeSeat($seatIndex)');
+            '[UTDRoomController] handleIncomingInvitation — fallback takeSeat($seatIndex)',
+          );
           final identity = _roomManager.localParticipant?.identity;
           if (identity != null) {
             await seatController.takeSeat(seatIndex, identity);
@@ -1652,7 +1700,8 @@ class UTDRoomController {
         });
       } catch (e) {
         debugPrint(
-            '[UTDRoomController] handleIncomingInvitation — accept error: $e');
+          '[UTDRoomController] handleIncomingInvitation — accept error: $e',
+        );
         // Fallback: try to take seat directly
         if (seatIndex != null) {
           final identity = _roomManager.localParticipant?.identity;
@@ -1702,7 +1751,8 @@ class UTDRoomController {
     _unregisterLifecycleWatcher();
     if (_activeController == this) _activeController = null;
     debugPrint(
-        '🚪 [EXIT] UTDRoomController.dispose() — releasing all resources...');
+      '🚪 [EXIT] UTDRoomController.dispose() — releasing all resources...',
+    );
 
     _speakingPollTimer?.cancel();
     _speakingPollTimer = null;
@@ -1742,7 +1792,8 @@ class UTDRoomController {
     _commentApi = null;
     onBanned = null;
     debugPrint(
-        '🚪 [EXIT] UTDRoomController.dispose() — done, all resources released');
+      '🚪 [EXIT] UTDRoomController.dispose() — done, all resources released',
+    );
   }
 }
 

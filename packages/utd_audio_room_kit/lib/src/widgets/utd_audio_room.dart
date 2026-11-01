@@ -236,6 +236,11 @@ class _UTDAudioRoomState extends State<UTDAudioRoom> {
         appKey: widget.appKey,
       );
       _controller.registerModes(widget.modes);
+      // Start on this room's own layout. Without this the first frames use
+      // the default 9-seat mode and the seats visibly resize once the room's
+      // real mode arrives.
+      _controller.currentMode.value =
+          _controller.resolveMode(widget.layoutMode);
       widget.onControllerReady?.call(_controller);
       _connect();
     }
@@ -633,17 +638,20 @@ class _UTDAudioRoomState extends State<UTDAudioRoom> {
     );
   }
 
-  /// Pre-connect skeleton: greyed placeholder seat circles laid out exactly
-  /// like the real grid ([widget.layoutMode] is known at build) plus an empty
-  /// chat area, so the room shape appears instantly instead of a bare spinner.
-  /// Placeholders only — NO real seat/chat data renders before connect, so a
+  /// Pre-connect view: only a small loader in the middle of the page (no
+  /// placeholder seats). NO real seat/chat data renders before connect, so a
   /// user about to be rejected (banned) still never sees room content.
   Widget _buildConnectingSkeleton(BuildContext context) {
-    final mode = _controller.resolveMode(widget.layoutMode);
-    // sizeOf (not MediaQuery.of): a full-MediaQuery dependency would rebuild
-    // this subtree on every keyboard-inset animation frame.
-    final seatSize = mode.computeSeatSize(MediaQuery.sizeOf(context).width);
-    return _ConnectingSkeleton(rows: mode.rows, seatSize: seatSize);
+    return const Center(
+      child: SizedBox(
+        width: 26,
+        height: 26,
+        child: CircularProgressIndicator(
+          strokeWidth: 2.5,
+          valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+        ),
+      ),
+    );
   }
 
   Widget _buildSeats() {
@@ -740,110 +748,6 @@ class _UTDAudioRoomState extends State<UTDAudioRoom> {
       avatarBuilder: widget.config.avatarBuilder,
       emptySeatBuilder: widget.config.emptySeatBuilder,
       lockedSeatBuilder: widget.config.lockedSeatBuilder,
-    );
-  }
-}
-
-/// Pre-connect skeleton whose placeholder seats gently "breathe" so the join
-/// state clearly reads as loading rather than frozen. A SINGLE shared
-/// AnimationController drives every circle's opacity (never one per tile), and
-/// the whole widget — controller included — is torn down the instant the real
-/// room body replaces it, so there is no steady-state cost after connect.
-/// Honors reduce-motion (renders a static skeleton).
-class _ConnectingSkeleton extends StatefulWidget {
-  final List<List<int>> rows;
-  final double seatSize;
-
-  const _ConnectingSkeleton({required this.rows, required this.seatSize});
-
-  @override
-  State<_ConnectingSkeleton> createState() => _ConnectingSkeletonState();
-}
-
-class _ConnectingSkeletonState extends State<_ConnectingSkeleton>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _controller = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 1200),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bool reduceMotion =
-        MediaQuery.maybeDisableAnimationsOf(context) ?? false;
-    final Widget grid = Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (int r = 0; r < widget.rows.length; r++)
-          // scaleDown keeps a wide row from overflowing narrow screens.
-          FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (final _ in widget.rows[r])
-                  Padding(
-                    padding: const EdgeInsets.all(6),
-                    // A small per-row phase offset so the grid breathes
-                    // top-to-bottom instead of all at once.
-                    child: _SkeletonCircle(
-                      controller: _controller,
-                      size: widget.seatSize,
-                      phase: r * 0.15,
-                      animate: !reduceMotion,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        const Expanded(child: SizedBox.shrink()),
-      ],
-    );
-    return RepaintBoundary(child: grid);
-  }
-}
-
-class _SkeletonCircle extends StatelessWidget {
-  final AnimationController controller;
-  final double size;
-  final double phase;
-  final bool animate;
-
-  const _SkeletonCircle({
-    required this.controller,
-    required this.size,
-    required this.phase,
-    required this.animate,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    Widget circle(double alpha) => Container(
-          width: size,
-          height: size,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: Colors.white.withValues(alpha: alpha),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-          ),
-        );
-    if (!animate) return circle(0.08);
-    return AnimatedBuilder(
-      animation: controller,
-      builder: (context, _) {
-        // Wrap the shared 0..1 clock by the row phase, fold to a triangle so it
-        // eases 0.06 ↔ 0.14 smoothly.
-        final t = (controller.value + phase) % 1.0;
-        final tri = t < 0.5 ? t * 2 : (1 - t) * 2;
-        return circle(0.06 + 0.08 * tri);
-      },
     );
   }
 }

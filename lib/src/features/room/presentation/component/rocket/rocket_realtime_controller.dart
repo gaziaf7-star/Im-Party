@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter_svga/flutter_svga.dart';
+import 'package:general/src/core/cache/svga_movie_cache.dart';
 import 'package:general/src/core/index.dart';
 import 'package:general/src/features/room/room.dart';
 
@@ -31,6 +33,15 @@ class RocketRealtimeController {
   /// is dismissed (see [finishLaunch]).
   final ValueNotifier<Map<String, dynamic>?> launchEvent = ValueNotifier(null);
 
+  /// True while the launch animation is actually on screen (set by the
+  /// overlay once the SVGA is ready and playing). The launch banner follows
+  /// it so banner and animation start and end together.
+  final ValueNotifier<bool> launchAnimating = ValueNotifier(false);
+
+  /// The finished launch whose reward card (winners + what they got) is shown
+  /// right after the animation ends; cleared by [dismissReward].
+  final ValueNotifier<Map<String, dynamic>?> rewardEvent = ValueNotifier(null);
+
   /// Bumped on every reset/expiry so listeners (carousel icon, bottom sheet)
   /// know to re-fetch fresh REST state even though [latestRocket] just went
   /// back to null (a ValueNotifier doesn't notify on null -> null).
@@ -42,6 +53,9 @@ class RocketRealtimeController {
   /// fight the gift animation for the screen. Capped so a stuck signal can
   /// never suppress the launch forever.
   Timer? _launchDelayTimer;
+
+  /// Launch ids already played, so a duplicate broadcast is ignored.
+  final Set<String> _handledLaunchIds = {};
 
   int _asInt(dynamic v) {
     if (v is int) return v;
@@ -59,7 +73,11 @@ class RocketRealtimeController {
     final action = json['action_type']?.toString();
 
     final eventRoomId = json['room_id'] ?? json['stream_id'];
-    final currentRoomId = RoomData.instance.room.id;
+    // Not in any room yet (e.g. on the home page): nothing to update. `room`
+    // would throw here, so read the nullable getter.
+    final currentRoom = RoomData.instance.roomOrNull;
+    if (currentRoom == null) return;
+    final currentRoomId = currentRoom.id;
     if (eventRoomId != null &&
         currentRoomId != null &&
         _asInt(eventRoomId) != _asInt(currentRoomId)) {
@@ -74,9 +92,15 @@ class RocketRealtimeController {
         final rocket = json['rocket'];
         if (rocket is Map) {
           latestRocket.value = Map<String, dynamic>.from(rocket);
+          prepareFromRocket(rocket);
         }
         break;
       case 'rocket_launched':
+        // The same launch can arrive on more than one realtime channel;
+        // play it only once.
+        final launchId = (json['launch_id'] ?? json['event_id'])?.toString();
+        if (launchId != null && !_handledLaunchIds.add(launchId)) break;
+        Methods.printLog('🚀 [Rocket] rocket_launched received (launch $launchId)');
         _scheduleLaunch(json);
         break;
       case 'rocket_session_reset':
@@ -87,35 +111,152 @@ class RocketRealtimeController {
     }
   }
 
+  /// Fetchable URL for a user picture from a rocket payload. The rocket API
+  /// returns `https://<host>/profile/x.jpg` (no `/storage/`), which 404s; the
+  /// real file lives under the storage base. Logged so a missing picture can
+  /// be traced.
+  static String profileUrl(dynamic raw,
+      {String label = 'profile', bool log = true}) {
+    var url = raw?.toString().trim() ?? '';
+    if (url.toLowerCase() == 'null') url = '';
+    final fixed = _fixProfileUrl(url);
+    if (log) Methods.printLog('🚀 [Rocket] $label image: "$url" -> "$fixed"');
+    return fixed;
+  }
+
+  /// Same fix for any backend picture (profile, reward, gift...): the rocket
+  /// payload gives `https://host/files/x.png` while the file really lives under
+  /// `https://host/storage/files/x.png`.
+  static String mediaUrl(dynamic raw,
+      {String label = 'media', bool log = false}) {
+    var url = raw?.toString().trim() ?? '';
+    if (url.toLowerCase() == 'null') url = '';
+    final fixed = _fixProfileUrl(url);
+    if (log) Methods.printLog('🚀 [Rocket] $label: "$url" -> "$fixed"');
+    return fixed;
+  }
+
+  static const _storageFolders = [
+    'profile/',
+    'files/',
+    'images/',
+    'rooms/',
+    'families/',
+    'chat/',
+    'extradata/',
+  ];
+
+  static String _fixProfileUrl(String url) {
+    if (url.isEmpty) return '';
+    final host = '${EndPoints.domainURL}/';
+    if (url.startsWith(host)) {
+      final rest = url.substring(host.length);
+      if (_storageFolders.any(rest.startsWith)) {
+        return EndPoints.getImage(rest);
+      }
+    }
+    return EndPoints.getImage(url);
+  }
+
+  // ---- Launch animation preloading ---------------------------------------
+  //
+  // The level's `launch_animation` SVGA is ~24 MB: downloading + decoding it
+  // only when the rocket launches made it appear late and stutter. It is
+  // fetched and decoded ahead of time (as soon as the rocket level is known)
+  // and handed to the overlay already prepared.
+
+  final Map<String, Future<MovieEntity?>> _preparedLaunch = {};
+
+  /// Starts preparing the `launch_animation` of [rocket] (current level, and
+  /// the next one if present). Safe to call repeatedly: each URL is prepared
+  /// once, and at most two prepared animations are kept.
+  void prepareFromRocket(dynamic rocket) {
+    if (rocket is! Map) return;
+    for (final key in const ['level', 'current_level', 'next_level']) {
+      final level = rocket[key];
+      if (level is Map) {
+        final url = level['launch_animation']?.toString().trim() ?? '';
+        if (url.isNotEmpty && url.toLowerCase() != 'null') {
+          _prepareLaunchAnimation(url);
+        }
+      }
+    }
+  }
+
+  void _prepareLaunchAnimation(String url) {
+    final resolved = EndPoints.getImage(url);
+    if (resolved.isEmpty || _preparedLaunch.containsKey(resolved)) return;
+    while (_preparedLaunch.length >= 2) {
+      _preparedLaunch.remove(_preparedLaunch.keys.first);
+    }
+    _preparedLaunch[resolved] = _loadMovie(resolved);
+  }
+
+  Future<MovieEntity?> _loadMovie(String resolved) async {
+    try {
+      final movie = await SvgaMovieCache.instance.loadFromUrl(resolved);
+      // The movie is decoded: drop the raw 24 MB buffer from the byte cache.
+      SvgaMovieCache.instance.evict(resolved);
+      return movie;
+    } catch (e) {
+      Methods.printLog('⚠️ [Rocket] preparing launch animation failed: $e');
+      return null;
+    }
+  }
+
+  /// The prepared (or still preparing) movie for [url], consumed on use; null
+  /// when it was never prepared.
+  Future<MovieEntity?>? takePreparedLaunch(String url) =>
+      _preparedLaunch.remove(EndPoints.getImage(url));
+
   /// Called by the launch overlay once its ~7s animation + reward board have
   /// both finished playing, to dismiss itself and let the next rocket's
   /// progress render normally.
   void finishLaunch() {
     _launchDelayTimer?.cancel();
+    final finished = launchEvent.value;
+    launchAnimating.value = false;
     launchEvent.value = null;
+    final winners = finished?['winners'];
+    if (finished != null && winners is List && winners.isNotEmpty) {
+      rewardEvent.value = finished;
+    }
   }
 
-  /// Waits for the gift-send SVGA (the one that likely just completed the
-  /// rocket's target) to finish playing before revealing the launch overlay,
-  /// so the two animations play back-to-back instead of on top of each
-  /// other. Always waits at least one grace tick before the first check --
-  /// the `rocket_launched` broadcast is a websocket round trip and can beat
-  /// the local gift-send response to the client by a few frames, so checking
-  /// [GiftPlaybackSignal] instantly on arrival could see "not playing yet"
-  /// for a gift that is about to start.
+  void dismissReward() => rewardEvent.value = null;
+
+  /// Reveals the launch animation only AFTER the gift animation that completed
+  /// the rocket has finished, so the two never play on top of each other and
+  /// the rocket starts right as the gift ends.
+  ///
+  /// The `rocket_launched` broadcast can beat the local gift display by a
+  /// moment, so a short grace period waits for a gift to START playing; once
+  /// one has been seen playing, it waits for it to END. When no gift ever
+  /// starts (grace passed) the launch plays straight away. A hard cap keeps a
+  /// stuck signal from suppressing the launch forever.
   void _scheduleLaunch(Map<String, dynamic> json) {
     _launchDelayTimer?.cancel();
-    final deadline = DateTime.now().add(const Duration(seconds: 8));
+    prepareFromRocket(json);
+    final started = DateTime.now();
+    const grace = Duration(seconds: 4);
+    const cap = Duration(seconds: 30);
+    var sawGift = false;
 
-    void tryShow() {
-      if (GiftPlaybackSignal.isPlaying && DateTime.now().isBefore(deadline)) {
-        _launchDelayTimer =
-            Timer(const Duration(milliseconds: 250), tryShow);
+    void tick() {
+      final elapsed = DateTime.now().difference(started);
+      if (GiftPlaybackSignal.isPlaying) {
+        sawGift = true;
+        if (elapsed < cap) {
+          _launchDelayTimer = Timer(const Duration(milliseconds: 100), tick);
+          return;
+        }
+      } else if (!sawGift && elapsed < grace) {
+        _launchDelayTimer = Timer(const Duration(milliseconds: 100), tick);
         return;
       }
       launchEvent.value = json;
     }
 
-    _launchDelayTimer = Timer(const Duration(milliseconds: 200), tryShow);
+    _launchDelayTimer = Timer(const Duration(milliseconds: 100), tick);
   }
 }

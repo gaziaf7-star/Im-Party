@@ -1,6 +1,7 @@
 import 'package:general/src/core/index.dart';
 import 'package:general/src/features/agency/domain/entity/agency_host_report.dart';
 import 'package:general/src/features/agency/presentation/host_agency/bloc/agency_host_report/agency_host_report_bloc.dart';
+import 'package:general/src/features/agency/presentation/host_agency/view/widgets/agency_ui.dart';
 import 'package:syncfusion_flutter_core/theme.dart';
 import 'package:syncfusion_flutter_datagrid/datagrid.dart';
 
@@ -75,15 +76,13 @@ class _UserBody extends StatelessWidget {
           padding: context.paddingSymmetric(
             horizontal: 15,
           ),
+          // Dark now that the page is white (white text vanished on it).
           child: TextWidget(
             StringManager.dailyData.tr(),
-            // White (back to how it was), on request.
-            style: context.bodyMedium
-                .size(15)
-                .colorExt(Colors.white),
+            style: AgencyUI.title(context),
           ),
-        ),
-        15.hBox,
+        ).agencyEntrance(5),
+        12.hBox,
         Padding(
           padding: context.paddingOnly(
             start: 15,
@@ -91,7 +90,7 @@ class _UserBody extends StatelessWidget {
             bottom: 0,
           ),
           child: _ReportDataTableBody(state: state),
-        ),
+        ).agencyEntrance(6),
       ],
     );
   }
@@ -106,23 +105,26 @@ class _ReportDataTableBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final dataSource = ReportDataSource(state.data?.dalyReports ?? []);
 
-    return SizedBox(
+    return Container(
       height: ScreenUtil().screenHeight * 0.42,
+      margin: EdgeInsets.only(bottom: 50.h),
+      decoration: AgencyUI.card(radius: 16.r),
+      clipBehavior: Clip.antiAlias,
       child: SfDataGridTheme(
         data: SfDataGridThemeData(
-          headerColor: ColorManager.primary.withValues(alpha: 100),
-          gridLineColor: Colors.black12,
-          frozenPaneLineColor: Colors.black12,
+          headerColor: ColorManager.primary,
+          gridLineColor: AgencyUI.line,
+          frozenPaneLineColor: AgencyUI.line,
         ),
         child: Padding(
-          padding: context.paddingOnly(bottom: 50),
+          padding: EdgeInsets.zero,
           child: SfDataGrid(
             source: dataSource,
             frozenColumnsCount: 1,
             columnWidthMode: ColumnWidthMode.fill,
             showVerticalScrollbar: true,
-            rowHeight: 60,
-            headerRowHeight: 65,
+            rowHeight: 54,
+            headerRowHeight: 56,
             columns: [
               GridColumn(
                 columnName: 'day',
@@ -211,6 +213,10 @@ class ReportDataSource extends DataGridSource {
             child: TextWidget(
               cell.value.toString(),
               textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: AgencyUI.ink,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           );
         }

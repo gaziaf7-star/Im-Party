@@ -133,11 +133,12 @@ class _AgencyManagerScreenState extends State<AgencyManagerScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: AgencyUI.bg,
       floatingActionButton: ConstantsManager.isShowHostLevels == true
           ? const FloatingActionButtonBody()
           : null,
       body: Container(
-        color: ColorManager.scaffoldBgAlt,
+        color: AgencyUI.bg,
         child: BlocConsumer<InformationAgencyBloc, InformationAgencyState>(
           bloc: _informationAgencyBloc,
           listener: (context, state) {
@@ -185,14 +186,14 @@ class _AgencyManagerScreenState extends State<AgencyManagerScreen>
                         StringManager.noAgencyDataNowTitle.tr(),
                         textAlign: TextAlign.center,
                         style: context.bodyLarge.w600
-                            .colorExt(ColorManager.textPrimary),
+                            .colorExt(ColorManager.momentPostTextColor),
                       ),
                       5.hBox,
                       TextWidget(
                         StringManager.noAgencyDataNowSubTitle.tr(),
                         textAlign: TextAlign.center,
                         style: context.bodyMedium.copyWith(
-                          color: ColorManager.secondaryText,
+                          color: ColorManager.grey,
                           height: 1.30,
                         ),
                       ),
@@ -288,7 +289,12 @@ class _AgencyManagerScreenState extends State<AgencyManagerScreen>
                       SliverToBoxAdapter(
                         child: AppBarWidget(
                           title: StringManager.agencyCenter.tr(),
-                          backgroundColor: ColorManager.scaffoldBg,
+                          backgroundColor: AgencyUI.bg,
+                          iconColor: AgencyUI.ink,
+                          titleStyle: context.bodyMedium
+                              .size(19)
+                              .w800
+                              .colorExt(AgencyUI.ink),
                           height: 70.h,
                           iconLasted: (StringManager.userType[2]!)
                               ? IconButton(
@@ -298,11 +304,15 @@ class _AgencyManagerScreenState extends State<AgencyManagerScreen>
                                   },
                                   icon: Column(
                                     children: [
-                                      Icon(
-                                        Icons.settings,
-                                        color: ColorManager.textPrimary,
+                                      const Icon(
+                                        Icons.settings_rounded,
+                                        color: AgencyUI.ink,
                                       ),
-                                      TextWidget(StringManager.settings.tr()),
+                                      TextWidget(
+                                        StringManager.settings.tr(),
+                                        style: context.bodySmall
+                                            .colorExt(AgencyUI.ink),
+                                      ),
                                     ],
                                   ),
                                 )
@@ -317,21 +327,26 @@ class _AgencyManagerScreenState extends State<AgencyManagerScreen>
                           child: Container(
                             height: ScreenUtil().screenHeight,
                             width: ScreenUtil().screenWidth,
-                            color: ColorManager.white,
+                            color: AgencyUI.bg,
                           ),
                         )
                       else ...[
-                        SliverToBoxAdapter(child: _HeaderBody(state: state)),
+                        SliverToBoxAdapter(
+                          child: _HeaderBody(state: state).agencyEntrance(),
+                        ),
                         SliverToBoxAdapter(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              15.hBox,
-                              TabBarAgency(
-                                isOwner: true,
-                                controller: controller,
-                              ),
-                              10.hBox,
+                              16.hBox,
+                              Padding(
+                                padding: EdgeInsets.symmetric(horizontal: 4.w),
+                                child: TabBarAgency(
+                                  isOwner: true,
+                                  controller: controller,
+                                ),
+                              ).agencyEntrance(1),
+                              12.hBox,
                             ],
                           ),
                         ),

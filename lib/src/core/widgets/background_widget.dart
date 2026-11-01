@@ -22,7 +22,39 @@ class BackgroundImgWidget extends StatelessWidget {
     super.key,
     this.resize,
     this.backgroundGradient,
+    this.headerImageHeight,
+    this.paintHeaderImage = true,
   });
+
+  /// False when the page draws [panelBodyImage] inside its own scroll view
+  /// (profile), so the image scrolls with the content; the page is then just
+  /// white here.
+  final bool paintHeaderImage;
+
+  /// Height of the admin body image band at the top of a [backgroundGradient]
+  /// page. Null uses the app-bar height (about 10% of the screen); the profile
+  /// page passes a taller band so the image sits behind its whole header.
+  final double? headerImageHeight;
+
+  /// The admin panel's body image (`regions.body`, or the app-check body
+  /// theme image), resolved under `/storage/`; '' when none is set.
+  static String panelBodyImage() {
+    final region = ColorManager.bodyRegion;
+    if (region != null && region.type == 'image' && region.isRenderable) {
+      return region.image;
+    }
+    final type = HiveManager().getData<String>(
+            KeysManager.USER_BOX, KeysManager.BODY_THEME_TYPE_KEY) ??
+        '';
+    if (type != 'image') return '';
+    final raw = (HiveManager().getData<String>(
+                KeysManager.USER_BOX, KeysManager.BODY_THEME_IMAGE_KEY) ??
+            '')
+        .trim();
+    if (raw.isEmpty || EndPoints.isAbsoluteUrl(raw)) return raw;
+    return EndPoints.resolveUrl(raw,
+        baseUrl: '${EndPoints.domainURL}/storage/');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +68,20 @@ class BackgroundImgWidget extends StatelessWidget {
     // instead. That is why the home gradient never appeared: the code that
     // would have painted it never ran.
     if (backgroundGradient != null) {
-      return _buildGradientBackground(context);
+      // The main tabs (Home / Moment / Chat / Mine): when the admin set a body
+      // image, it fills the app-bar area and the rest of the page is white.
+      return ListenableBuilder(
+        listenable: Listenable.merge([
+          ConstantsManager.colorsNotifier,
+          ConstantsManager.bodyThemeNotifier,
+        ]),
+        builder: (context, _) {
+          final image = panelBodyImage();
+          return image.isEmpty
+              ? _buildGradientBackground(context)
+              : _buildHeaderImageBackground(context, image);
+        },
+      );
     }
 
     final isBodyThemeEnabled = HiveManager().getData<bool>(
@@ -109,6 +154,36 @@ class BackgroundImgWidget extends StatelessWidget {
               child: DecoratedBox(
                 decoration: BoxDecoration(gradient: backgroundGradient),
               ),
+            ),
+          ),
+          child,
+        ],
+      ),
+    );
+  }
+
+  /// White page with the admin body image across the top band.
+  Widget _buildHeaderImageBackground(BuildContext context, String image) {
+    final size = MediaQuery.sizeOf(context);
+    final height = headerImageHeight ?? size.height * 0.1;
+    return Scaffold(
+      resizeToAvoidBottomInset: resize ?? true,
+      backgroundColor: Colors.white,
+      body: Stack(
+        children: [
+          if (paintHeaderImage)
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            height: height,
+            // Hard edge, no veil: the image stays clear in the app bar and
+            // does not blend into the white body.
+            child: ImageViewWidget(
+              url: image,
+              width: size.width,
+              height: height,
+              boxFit: BoxFit.cover,
             ),
           ),
           child,

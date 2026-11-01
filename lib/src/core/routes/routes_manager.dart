@@ -1,4 +1,5 @@
 import 'package:general/src/core/widgets/web_view_events.dart';
+import 'package:general/src/features/room/presentation/component/widgets/room_edge_swipe_minimize.dart';
 import 'package:general/src/features/agency/agency.dart';
 import 'package:general/src/features/profile/presentation/profile/bloc/bloc_badge/user_badges_bloc.dart';
 import 'package:webview_flutter/webview_flutter.dart';
@@ -474,7 +475,7 @@ class Routes {
     // ── Room ──
       case Routes.roomScreen:
         final roomPramiter = settings.arguments as RoomParameter;
-        return MaterialPageRoute(
+        return roomSlideRoute(
           settings: settings,
           builder: (_) => MultiBlocProvider(
             providers: [

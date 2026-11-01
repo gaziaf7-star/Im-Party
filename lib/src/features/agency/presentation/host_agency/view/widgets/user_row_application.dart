@@ -15,7 +15,9 @@ class UserRowApplication extends StatelessWidget {
         );
       },
       child: Container(
-        padding: context.paddingOnly(start: 10, top: 5, bottom: 5, end: 20),
+        margin: EdgeInsets.symmetric(vertical: 5.h),
+        padding: context.paddingOnly(start: 10, top: 10, bottom: 10, end: 12),
+        decoration: AgencyUI.card(),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -38,7 +40,10 @@ class UserRowApplication extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    TextWidget('ID: ${userDataModel.uuid}'),
+                    TextWidget(
+                      'ID: ${userDataModel.uuid}',
+                      style: context.bodySmall.colorExt(AgencyUI.muted),
+                    ),
                   ],
                 ),
               ],
@@ -92,7 +97,7 @@ class UserRowApplication extends StatelessWidget {
                       fontSize: 12,
                       isFittedBox: false,
                       fontWeight: FontWeight.w400,
-                      titleColor: ColorManager.secondaryText,
+                      titleColor: ColorManager.grey,
                       width: 60.w,
                       height: 25.h,
                       backgroundColor: ColorManager.lightGrey,

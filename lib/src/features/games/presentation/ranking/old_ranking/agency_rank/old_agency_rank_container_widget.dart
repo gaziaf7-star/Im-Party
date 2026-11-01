@@ -2,6 +2,8 @@ import 'package:general/src/core/index.dart';
 import 'package:general/src/features/agency/presentation/host_agency/bloc/manager_show_agency/show_agency_bloc.dart';
 import 'package:general/src/features/agency/presentation/search_agency_screen/view/show_hosts_agency.dart';
 import 'package:general/src/features/games/domain/entities/agency_ranking_entity.dart';
+import '../rank_theme.dart';
+import 'old_top_three_agency_widget.dart';
 
 class OldAgencyRankContainerWidget extends StatelessWidget {
   final List<AgencyRankingEntity>? agenciesEntity;
@@ -23,39 +25,30 @@ class OldAgencyRankContainerWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: MediaQuery.of(context).size.width,
-          height: (agenciesEntity ?? []).isEmpty ||
-                  (agenciesEntity ?? []).length <= 4
-              ? 280.h
-              : null,
-          decoration: BoxDecoration(
-              color: ColorManager.surfaceCardColor,
-              borderRadius: BorderRadius.only(
-                topLeft: Radius.circular(25.r),
-                topRight: Radius.circular(25.r),
-              )),
-          child: ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: context.paddingOnly(
-                bottom: 10.h, top: isRankRoom ? 20 : 0, start: 10, end: 10),
-            itemBuilder: (context, index) {
-              return UserInfoRankWidget(
-                index: index + 4,
-                agencyEntity: agenciesEntity?[index],
-                isCp: isCp,
-                isWealth: isWealth,
-                isSender: isSender,
-              );
-            },
-            itemCount: agenciesEntity?.length ?? 0,
-          ),
-        ),
-        if (isRankRoom == true) 100.hBox,
-      ],
+    final agencies = agenciesEntity ?? const <AgencyRankingEntity>[];
+    return RankListPanel(
+      child: ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.only(bottom: isRankRoom ? 100.h : 10.h),
+        itemCount: agencies.length,
+        itemBuilder: (context, index) {
+          final agency = agencies[index];
+          return RankListCard(
+            rank: index + 4,
+            onTap: () => openAgency(context, agency),
+            avatar: UserImage(
+              image: agency.img,
+              displayName: agency.name,
+              imageSize: 56,
+              boxFit: BoxFit.cover,
+            ),
+            info: AgencyRankInfo(agency: agency, showValue: false),
+            valueIcon: AssetsManager.rankWealthIcon,
+            value: agency.exp,
+          );
+        },
+      ),
     );
   }
 }

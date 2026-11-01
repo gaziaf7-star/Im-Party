@@ -14,6 +14,12 @@ class UTDMediaController {
 
   UTDMediaController(this._roomManager);
 
+  /// App-level speak gate (the room's All Mute). When set and it returns
+  /// `false`, turning the mic ON is refused -- every path that opens the mic
+  /// (mic button, seat take, invitation, background restore) goes through
+  /// [setMicrophoneEnabled]. Static so it outlives each room's controller.
+  static bool Function()? speakGate;
+
   /// Listener for RTC track mute/unmute events. Keeps [isMicEnabled] in
   /// sync with server/host-initiated mutes — not just local toggles.
   EventsListener<RoomEvent>? _listener;
@@ -85,6 +91,11 @@ class UTDMediaController {
     // Publishing (enabled=true) on a room that is not connected hands the SDK a
     // track that teardown/reconnect can dispose mid-publish → the live
     // `addTransceiver track-is-null` fatal. Refuse at the entry instead.
+    if (enabled && speakGate != null && !speakGate!()) {
+      debugPrint('[UTDMediaController] setMicrophoneEnabled(true) refused — '
+          'speaking is not allowed right now (All Mute)');
+      return;
+    }
     if (enabled && !_canStartPublish) {
       debugPrint('[UTDMediaController] setMicrophoneEnabled($enabled) refused — '
           'room not connected (state=${_roomManager.connectionState.value})');
@@ -153,6 +164,20 @@ class UTDMediaController {
     final localId = _roomManager.localParticipant?.identity;
     if (event.participant.identity == localId) return;
     event.publication.disable();
+  }
+
+  /// Re-reads the publish permission straight from the local participant and
+  /// returns it. Covers a missed [ParticipantPermissionsUpdatedEvent] (e.g. the
+  /// upgrade after taking a seat), which otherwise left the mic button dead.
+  bool refreshCanPublish() {
+    if (_disposed) return false;
+    final lp = _roomManager.localParticipant;
+    if (lp != null && canPublish.value != lp.permissions.canPublish) {
+      debugPrint('[UTDMediaController] local canPublish='
+          '${lp.permissions.canPublish} via refresh');
+      canPublish.value = lp.permissions.canPublish;
+    }
+    return canPublish.value;
   }
 
   /// Updates [canPublish] from a permissions event, but only for the LOCAL
@@ -327,10 +352,41 @@ class UTDMediaController {
     isSpeakerOn.dispose();
     isAllRemoteAudioMuted.dispose();
     canPublish.dispose();
+    isNoiseReductionOn.dispose();
   }
 
   /// Whether the mic is currently captured in MUSIC mode.
   final ValueNotifier<bool> isMusicMode = ValueNotifier<bool>(false);
+
+  /// Noise-reduction choice new rooms start with. The app sets it from the
+  /// user's saved preference; [setNoiseReduction] keeps it in step.
+  static bool defaultNoiseReduction = true;
+
+  /// Whether background-noise reduction is on for the local mic (the user's
+  /// "Noise" switch in the room tools).
+  late final ValueNotifier<bool> isNoiseReductionOn =
+      ValueNotifier<bool>(defaultNoiseReduction);
+
+  /// Turns background-noise reduction on or off and recaptures the mic so it
+  /// takes effect at once. While music mode is active the music capture wins;
+  /// the choice applies again when the music stops.
+  Future<void> setNoiseReduction(bool on) async {
+    if (isNoiseReductionOn.value == on) return;
+    isNoiseReductionOn.value = on;
+    defaultNoiseReduction = on;
+
+    if (isMusicMode.value || !isMicEnabled.value) return;
+    final lp = _roomManager.localParticipant;
+    if (lp == null) return;
+    try {
+      // Capture options are fixed at track creation: stop and recapture.
+      await lp.setMicrophoneEnabled(false);
+      await lp.setMicrophoneEnabled(true, audioCaptureOptions: _captureOptions);
+      debugPrint('[UTDMediaController] setNoiseReduction($on) — mic republished');
+    } catch (e) {
+      debugPrint('[UTDMediaController] setNoiseReduction FAILED: $e');
+    }
+  }
 
   /// Republish the microphone with the voice-processing chain switched off, so
   /// music playing out of the loudspeaker is actually heard by everyone else.
@@ -382,5 +438,17 @@ class UTDMediaController {
           voiceIsolation: false,
           typingNoiseDetection: false,
         )
-      : const AudioCaptureOptions();
+      : isNoiseReductionOn.value
+          // Noise reduction ON: WebRTC's noise suppression, voice isolation,
+          // typing-noise detection (all default on) plus the high-pass filter
+          // for low rumble (fan, AC, traffic, desk knocks).
+          ? const AudioCaptureOptions(highPassFilter: true)
+          // OFF: the raw room sound, but echo cancellation and auto gain stay
+          // so the speaker doesn't echo back and levels stay sane.
+          : const AudioCaptureOptions(
+              noiseSuppression: false,
+              highPassFilter: false,
+              voiceIsolation: false,
+              typingNoiseDetection: false,
+            );
 }

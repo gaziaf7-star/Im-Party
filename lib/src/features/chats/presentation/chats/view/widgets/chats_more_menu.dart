@@ -13,7 +13,7 @@ class ChatsMoreMenu extends StatelessWidget {
     return PopupMenuButton(
       // Fixed white — this icon now always sits on the Chats page's
       // Home-style gradient band, not the panel's textPrimary.
-      iconColor: ColorManager.homeHeaderTextColor,
+      iconColor: Colors.black,
       // Fixed white popup card (was the mutable, panel-overridable
       // surfaceCardColor) so the dropdown always matches the light theme.
       color: ColorManager.white,

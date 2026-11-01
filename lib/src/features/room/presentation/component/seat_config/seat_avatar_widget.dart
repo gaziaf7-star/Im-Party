@@ -10,7 +10,9 @@ import 'package:general/src/core/widgets/cache/cache_vap_widget.dart';
 import 'package:general/src/core/widgets/cache/cache_video_widget.dart';
 import 'package:general/src/features/room/presentation/component/seat_config/charisma_badge_widget.dart';
 import 'package:general/src/features/room/presentation/component/seat_config/seat_metrics.dart';
+import 'package:general/src/features/room/presentation/component/seat_config/seat_mute_badge.dart';
 import 'package:general/src/features/room/room.dart';
+import 'package:general/src/features/room/presentation/room_controls/room_controls.dart';
 
 class SeatAvatarWidget extends StatelessWidget {
   final String userId;
@@ -39,10 +41,7 @@ class SeatAvatarWidget extends StatelessWidget {
     // safe even if the room kit briefly renders the same user twice during a
     // seat/overlay transition.
     if (di<RoomStateManager>().isInAudioRoom && userId.isNotEmpty) {
-      RoomScreenState.registerSeatAvatarContext(
-        userId,
-        context,
-      );
+      RoomScreenState.registerSeatAvatarContext(userId, context);
     }
 
     // All data comes from backend metadata (attributes) — no local cache.
@@ -157,9 +156,6 @@ class SeatAvatarWidget extends StatelessWidget {
                       ),
                     ),
 
-                  // ================== Charisma Badge ==================
-                  CharismaBadge(userId: userId, imageSize: avatarSize),
-
                   // ================== Mic State (below avatar, right side) ==================
                   if (userId.isNotEmpty)
                     _MicState(imageSize: avatarSize, userId: userId),
@@ -189,26 +185,36 @@ class SeatAvatarWidget extends StatelessWidget {
                 if (userId.isNotEmpty)
                   _InlineAdminBadge(userId: userId, avatarSize: avatarSize),
                 Flexible(
-                  child: GradientName(child: TextScroll(
-                    displayName,
-                    velocity: const Velocity(pixelsPerSecond: Offset(50, 0)),
-                    pauseBetween: const Duration(milliseconds: 1000),
-                    textAlign: TextAlign.center,
-                    style: context.bodyMedium
-                        .copyWith(fontSize: m.nameFont)
-                        .w600
-                        .colorExt(
-                      colorName.isNotEmpty
-                          ? Color(
-                        int.parse(colorName.replaceAll('#', '0xff')),
-                      )
-                          : ColorManager.white,
+                  child: GradientName(
+                    child: TextScroll(
+                      displayName,
+                      velocity: const Velocity(pixelsPerSecond: Offset(50, 0)),
+                      pauseBetween: const Duration(milliseconds: 1000),
+                      textAlign: TextAlign.center,
+                      style: context.bodyMedium
+                          .copyWith(fontSize: m.nameFont)
+                          .w600
+                          .colorExt(
+                            colorName.isNotEmpty
+                                ? Color(
+                                  int.parse(colorName.replaceAll('#', '0xff')),
+                                )
+                                : ColorManager.white,
+                          ),
                     ),
-                  )),
+                  ),
                 ),
               ],
             ),
           ),
+
+        // Charisma value (heart + number) under the name, while charisma is
+        // on -- moved off the photo, as in im_Chat.
+        CharismaValueLine(
+          userId: userId,
+          fontSize: m.charismaFont,
+          iconSize: m.charismaIcon,
+        ),
       ],
     );
   }
@@ -220,6 +226,15 @@ class SeatAvatarWidget extends StatelessWidget {
     required double width,
     required double height,
   }) {
+    // The backend's frame_type is not reliable: it can say "png" for a
+    // ".svga" file (seen live: frame=files/svga_ypPGL0.svga, frame_type=png).
+    // Rendering that through ImageViewWidget fails and draws nothing, so the
+    // frame flashed for a moment and then vanished from the seat. Trust the
+    // file extension first.
+    final path = frame.toLowerCase().split('?').first;
+    if (path.endsWith('.svga') || path.endsWith('.zz')) {
+      frameType = 'svga';
+    }
     if (frameType == "svga") {
       return CacheSvgaWidget(
         key: ValueKey("frame_$id"),
@@ -375,24 +390,24 @@ class _SoundWaveOverlayState extends State<_SoundWaveOverlay> {
   bool get _isSpeaking {
     final controller = RoomData.instance.utdController;
     if (controller == null || widget.userId.isEmpty) return false;
-    final isMuted =
-        controller.mutedParticipants.value.contains(widget.userId);
-    return controller.activeSpeakers.value.contains(widget.userId) &&
-        !isMuted;
+    final isMuted = controller.mutedParticipants.value.contains(widget.userId);
+    return controller.activeSpeakers.value.contains(widget.userId) && !isMuted;
   }
 
   @override
   void initState() {
     super.initState();
-    RoomData.instance.utdController?.activeSpeakers
-        .addListener(_onSpeakersChanged);
+    RoomData.instance.utdController?.activeSpeakers.addListener(
+      _onSpeakersChanged,
+    );
   }
 
   @override
   void dispose() {
     _hideTimer?.cancel();
-    RoomData.instance.utdController?.activeSpeakers
-        .removeListener(_onSpeakersChanged);
+    RoomData.instance.utdController?.activeSpeakers.removeListener(
+      _onSpeakersChanged,
+    );
     super.dispose();
   }
 
@@ -471,41 +486,22 @@ class _MicState extends StatelessWidget {
     final controller = RoomData.instance.utdController;
     if (controller == null) return const SizedBox();
 
-    final m = SeatMetrics.forAvatar(imageSize);
-    return ValueListenableBuilder<Set<String>>(
-      valueListenable: controller.mutedParticipants,
-      builder: (context, muted, _) {
-        final isMuted = muted.contains(userId);
-        if (!isMuted) return const SizedBox();
-
-        return Positioned(
-          bottom: 0,
-          right: 0,
-          child: Container(
-            width: m.micCircle,
-            height: m.micCircle,
-            alignment: Alignment.center,
-            decoration: BoxDecoration(
-              color: ColorManager.onDark,
-              shape: BoxShape.circle,
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withValues(alpha: 0.2),
-                  blurRadius: 2,
-                  offset: const Offset(0, 1),
-                ),
-              ],
-            ),
-            child: Image.asset(
-              AssetsManager.muteUser,
-              color: ColorManager.redIcons,
-              width: m.micInner,
-              height: m.micInner,
-              fit: BoxFit.contain,
-            ),
+    // Mic actually off, or All Mute blocks this user. The owner/admins (and
+    // users allowed to speak) are exempt from All Mute, so their badge just
+    // follows their real mic — it clears as soon as they unmute.
+    return ValueListenableBuilder<RoomControlsState>(
+      valueListenable: RoomControls.instance.state,
+      builder:
+          (context, s, __) => ValueListenableBuilder<Set<String>>(
+            valueListenable: controller.mutedParticipants,
+            builder: (context, muted, _) {
+              final isMuted =
+                  muted.contains(userId) ||
+                  !RoomControls.instance.canSpeak(userId);
+              if (!isMuted) return const SizedBox();
+              return SeatMuteIcon(avatarSize: imageSize);
+            },
           ),
-        );
-      },
     );
   }
 }
@@ -541,39 +537,39 @@ class _EmojiOverlay extends StatelessWidget {
 
               return type == "svga"
                   ? CacheSvgaWidget(
-                url: emoji,
-                height: emojiSize,
-                width: emojiSize,
-                boxFit: BoxFit.contain,
-              )
+                    url: emoji,
+                    height: emojiSize,
+                    width: emojiSize,
+                    boxFit: BoxFit.contain,
+                  )
                   : type == "vap"
                   ? CachedVapWidget(
-                url: emoji,
-                height: emojiSize,
-                width: emojiSize,
-              )
+                    url: emoji,
+                    height: emojiSize,
+                    width: emojiSize,
+                  )
                   : type == "alpha"
                   ? CacheAlphaWidget(
-                url: emoji,
-                height: emojiSize,
-                width: emojiSize,
-              )
+                    url: emoji,
+                    height: emojiSize,
+                    width: emojiSize,
+                  )
                   : type == "mp4"
                   ? CacheVideoWidget(
-                videoUrl: emoji,
-                height: emojiSize,
-                width: emojiSize,
-              )
+                    videoUrl: emoji,
+                    height: emojiSize,
+                    width: emojiSize,
+                  )
                   : emoji.toLowerCase().endsWith('.gif')
                   ? _AnimatedGifEmoji(url: emoji, size: emojiSize)
                   : ImageViewWidget(
-                isFromRoom: true,
-                url: emoji,
-                height: emojiSize,
-                width: emojiSize,
-                radius: 50,
-                boxFit: BoxFit.contain,
-              );
+                    isFromRoom: true,
+                    url: emoji,
+                    height: emojiSize,
+                    width: emojiSize,
+                    radius: 50,
+                    boxFit: BoxFit.contain,
+                  );
             },
           ),
         ),
@@ -682,7 +678,8 @@ class _InlineAdminBadge extends StatelessWidget {
         // the host is the red figure, an admin the blue one. Previously both
         // carried the same badge, so a member could not tell who actually owned
         // the room.
-        final asset = isOwner ? AssetsManager.hostBadge : AssetsManager.adminBadge;
+        final asset =
+            isOwner ? AssetsManager.hostBadge : AssetsManager.adminBadge;
         final badgeSize = avatarSize * 0.22;
 
         return Padding(
@@ -699,8 +696,3 @@ class _InlineAdminBadge extends StatelessWidget {
     );
   }
 }
-
-
-
-
-

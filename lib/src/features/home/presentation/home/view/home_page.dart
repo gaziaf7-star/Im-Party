@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:general/src/features/home/presentation/daily_prize/view/daily_reward_floating_button.dart';
 import 'dart:io';
 import 'package:shimmer/shimmer.dart';
 import 'package:general/src/features/home/presentation/home/view/widgets/CountryFilterPage.dart';
@@ -38,6 +39,12 @@ part 'components/tab_bar_body.dart';
 
 int currentIndex = 0;
 
+/// The Live tab is hidden on the default Home (owner request); flip this to
+/// bring it back. The theme-1 home keeps its own behaviour.
+final bool _liveTabEnabledOnHome = false;
+bool get _showLiveTabOnHome =>
+    _liveTabEnabledOnHome && ConstantsManager.isShowLive;
+
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
@@ -54,7 +61,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   int _calculateTabLength() {
     final bool showAudio = ConstantsManager.isAudioRoomsEnabled;
-    final bool showLive = ConstantsManager.isShowLive;
+    final bool showLive = _showLiveTabOnHome;
 
     if (!showAudio) {
       return showLive ? 2 : 1; // Live + Discover OR Discover only
@@ -65,7 +72,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   int _calculateInitialIndex() {
     final bool showAudio = ConstantsManager.isAudioRoomsEnabled;
-    final bool showLive = ConstantsManager.isShowLive;
+    final bool showLive = _showLiveTabOnHome;
 
     if (ConstantsManager.homeScreen == 'live' && showLive) {
       // After the discover<->live swap, Live is the last tab:
@@ -114,7 +121,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     // a tab most sessions never touch would make the cold start worse for
     // everyone. `indexIsChanging` filters the intermediate frames of a swipe so
     // this fires once per arrival, not once per animation tick.
-    if (ConstantsManager.isShowLive) {
+    if (_showLiveTabOnHome) {
       _controller.addListener(_fetchLivesOnFirstOpen);
       if (_controller.index == _liveTabIndex) _fetchLivesOnFirstOpen();
     }
@@ -166,7 +173,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       _bloc.add(const PopularRemoveListenerEvent());
     }
 
-    if (ConstantsManager.isShowLive) {
+    if (_showLiveTabOnHome) {
       _controller.removeListener(_fetchLivesOnFirstOpen);
     }
 
@@ -187,16 +194,31 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         // the Home page only — every other screen using BackgroundImgWidget
         // keeps its existing look untouched.
         backgroundGradient: ColorManager.homeBackgroundGradient,
-        child: ConstantsManager.isTheme1
-            ? _NewUIBody(bloc: _bloc)
-            : _DefaultUIBody(
-          controller: _controller,
-          bloc: _bloc,
+        // Admin image covers exactly the app bar (status-bar gap + tab bar);
+        // the tab content starts below it (see _DefaultUIBody).
+        headerImageHeight: _kHomeHeaderHeight,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ConstantsManager.isTheme1
+                  ? _NewUIBody(bloc: _bloc)
+                  : _DefaultUIBody(
+                controller: _controller,
+                bloc: _bloc,
+              ),
+            ),
+            // Daily reward shortcut: starts bottom-right, draggable.
+            DailyRewardFloatingButton(size: 66.w),
+          ],
         ),
       ),
     );
   }
 }
+
+/// Height of the admin header image on Home: the 27.5h top gap plus the tab
+/// bar row.
+double get _kHomeHeaderHeight => 27.5.h + 54.h;
 
 class _DefaultUIBody extends StatelessWidget {
   const _DefaultUIBody({
@@ -210,7 +232,7 @@ class _DefaultUIBody extends StatelessWidget {
 
   int _calculateTabLength() {
     final bool showAudio = ConstantsManager.isAudioRoomsEnabled;
-    final bool showLive = ConstantsManager.isShowLive;
+    final bool showLive = _showLiveTabOnHome;
 
     if (!showAudio) {
       return showLive ? 2 : 1;
@@ -222,7 +244,7 @@ class _DefaultUIBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final bool showAudio = ConstantsManager.isAudioRoomsEnabled;
-    final bool showLive = ConstantsManager.isShowLive;
+    final bool showLive = _showLiveTabOnHome;
 
     return DefaultTabController(
       length: _calculateTabLength(),
@@ -231,6 +253,8 @@ class _DefaultUIBody extends StatelessWidget {
         children: [
           27.5.hBox,
           _TabBarBody(controller: _controller),
+          // Keeps the banner/cards below the app-bar image.
+          14.hBox,
           Expanded(
             child: TabBarView(
               controller: _controller,

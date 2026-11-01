@@ -1,326 +1,196 @@
 part of '../bag_page.dart';
 
-class BagTabBarView extends StatelessWidget {
-  final List<MyBagEntity> bagList;
-  final MyBagEntity? selectedItem;
-  final bool isLoading;
-  final MallOrBagType tabType;
-
-  const BagTabBarView({
-    required this.bagList,
-    required this.selectedItem,
-    required this.tabType,
-    super.key,
-    this.isLoading = false,
+/// 3-column grid of owned items; tapping one puts it on the podium.
+class _BagGrid extends StatelessWidget {
+  const _BagGrid({
+    required this.items,
+    required this.shown,
+    required this.onSelect,
+    required this.onRefresh,
   });
 
-  Future<void> _refresh() async {
-    if (tabType == MallOrBagType.bubble) {
-      di<MyBagBloc>().add(const GetBubbleBackPackMyBagEvent());
-    } else if (tabType == MallOrBagType.frame) {
-      di<MyBagBloc>().add(const GetFramesMyBagEvent());
-    } else if (tabType == MallOrBagType.intro) {
-      di<MyBagBloc>().add(const GetEntrieMyBagEvent());
-    } else if (tabType == MallOrBagType.specialId) {
-      di<MyBagBloc>().add(const GetSpecialIdMyBagEvent());
-    } else if (tabType == MallOrBagType.profileFrame) {
-      di<MyBagBloc>().add(const GetProfileFrameMyBagEvent());
-    }
+  final List<MyBagEntity> items;
+  final MyBagEntity? shown;
+  final ValueChanged<MyBagEntity> onSelect;
+  final Future<void> Function() onRefresh;
 
-    await Future<void>.delayed(
-      const Duration(milliseconds: 350),
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      color: StoreColors.lilac,
+      backgroundColor: const Color(0xFF1A1724),
+      onRefresh: onRefresh,
+      child: items.isEmpty
+          ? ListView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              children: [
+                SizedBox(height: 50.h),
+                Icon(Icons.backpack_outlined,
+                    size: 54.sp, color: Colors.white.withValues(alpha: .25)),
+                10.hBox,
+                Center(
+                  child: Text(
+                    StringManager.noDataYet.tr(),
+                    style: TextStyle(color: Colors.white54, fontSize: 13.sp),
+                  ),
+                ),
+              ],
+            )
+          : GridView.builder(
+              physics: const AlwaysScrollableScrollPhysics(
+                  parent: BouncingScrollPhysics()),
+              padding: EdgeInsets.fromLTRB(14.w, 4.h, 14.w, 16.h),
+              itemCount: items.length,
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                childAspectRatio: .74,
+                mainAxisSpacing: 12.h,
+                crossAxisSpacing: 10.w,
+              ),
+              itemBuilder: (context, index) {
+                final item = items[index];
+                return BagProductItem(
+                  data: item,
+                  isSelected: shown?.id == item.id,
+                  onTap: () => onSelect(item),
+                ).storeEntrance(index);
+              },
+            ),
     );
   }
+}
 
-  int _eventType() {
-    if (tabType == MallOrBagType.bubble) return 0;
-    if (tabType == MallOrBagType.frame) return 1;
-    if (tabType == MallOrBagType.intro) return 2;
-    if (tabType == MallOrBagType.specialId) return 3;
-    return 4;
-  }
+/// Send (outlined; only for items that can be gifted) + Use / Unuse.
+class _BagBottomBar extends StatelessWidget {
+  const _BagBottomBar({
+    required this.item,
+    required this.type,
+    required this.category,
+  });
 
-  String _typeCode() {
-    if (tabType == MallOrBagType.frame) return '1';
-    if (tabType == MallOrBagType.bubble) return '2';
-    if (tabType == MallOrBagType.intro) return '3';
-    if (tabType == MallOrBagType.profileFrame) return '28';
-    return '4';
-  }
+  final MyBagEntity? item;
+  final MallOrBagType type;
 
-  void _openSendSheet(BuildContext context, MyBagEntity item) {
+  /// 0 bubble, 1 frame, 2 entry, 3 special ID, 4 profile frame.
+  final int category;
+
+  String get _typeCode => switch (type) {
+        MallOrBagType.frame => '1',
+        MallOrBagType.bubble => '2',
+        MallOrBagType.intro => '3',
+        MallOrBagType.profileFrame => '28',
+        _ => '4',
+      };
+
+  void _openSendSheet(BuildContext context, MyBagEntity it) {
     customModalBottomSheet(
       context,
       radius: 0,
       height: ScreenUtil().screenHeight,
-      child: SendBottomSheet(
-        selectedItem: item,
-        isMall: false,
-      ),
+      child: SendBottomSheet(selectedItem: it, isMall: false),
     );
   }
 
-  void _toggleUse(BuildContext context, MyBagEntity item) {
-    final isUsed = item.isUsed;
-    final eventType = _eventType();
-    final typeCode = _typeCode();
-
-    if (tabType == MallOrBagType.specialId) {
+  /// Wear / take off the item (same requests as before).
+  void _toggleUse(MyBagEntity it) {
+    final isUsed = it.isUsed;
+    if (type == MallOrBagType.specialId) {
       di<MyBagBloc>().add(
-        SelectBagItemEvent(
-          selectedItem: isUsed ? null : item,
-          type: eventType,
-        ),
+        SelectBagItemEvent(selectedItem: isUsed ? null : it, type: category),
       );
-
       di<UseUnUseBloc>().add(
         UseUnUseSpecialIdEvent(
           param: UseUnUseBagItemParam(
-            itemId: item.id.toString(),
+            itemId: it.id.toString(),
             isUsed: !isUsed,
           ),
-          tabType: tabType,
+          tabType: type,
         ),
       );
       return;
     }
-
     if (isUsed) {
       di<UseUnUseBloc>().add(
         UnUseEvent(
-          param: UseUnUseBagItemParam(
-            itemId: item.id.toString(),
-            type: typeCode,
-          ),
-          tabType: tabType,
+          param: UseUnUseBagItemParam(itemId: it.id.toString(), type: _typeCode),
+          tabType: type,
         ),
       );
-
-      di<MyBagBloc>().add(
-        SelectBagItemEvent(
-          selectedItem: null,
-          type: eventType,
-        ),
-      );
+      di<MyBagBloc>().add(SelectBagItemEvent(selectedItem: null, type: category));
     } else {
       di<UseUnUseBloc>().add(
         UseEvent(
-          param: UseUnUseBagItemParam(
-            itemId: item.id.toString(),
-            type: typeCode,
-          ),
-          tabType: tabType,
+          param: UseUnUseBagItemParam(itemId: it.id.toString(), type: _typeCode),
+          tabType: type,
         ),
       );
-
-      di<MyBagBloc>().add(
-        SelectBagItemEvent(
-          selectedItem: item,
-          type: eventType,
-        ),
-      );
+      di<MyBagBloc>().add(SelectBagItemEvent(selectedItem: it, type: category));
     }
   }
 
   @override
   Widget build(BuildContext context) {
-    final topPadding =
-        MediaQuery.of(context).padding.top + kToolbarHeight - 30.h;
-
-    return Column(
-      children: [
-        Expanded(
-          child: RefreshIndicatorWidget(
-            onRefresh: _refresh,
-            child: bagList.isEmpty && !isLoading
-                ? ListView(
-              physics:
-              const AlwaysScrollableScrollPhysics(),
-              padding: EdgeInsets.only(top: topPadding),
-              children: [
-                SizedBox(height: 90.h),
-                Icon(
-                  Icons.backpack_outlined,
-                  size: 60.h,
-                  color: Colors.white.withValues(alpha: 0.30),
-                ),
-              ],
-            )
-                : GridView.builder(
-              physics: const BouncingScrollPhysics(),
-              padding: EdgeInsets.fromLTRB(
-                12.w,
-                topPadding,
-                12.w,
-                16.h,
-              ),
-              itemCount:
-              isLoading && bagList.isEmpty ? 6 : bagList.length,
-              gridDelegate:
-              SliverGridDelegateWithFixedCrossAxisCount(
-                crossAxisCount: 2,
-                childAspectRatio: 0.82,
-                mainAxisSpacing: 10.h,
-                crossAxisSpacing: 10.w,
-              ),
-              itemBuilder: (context, index) {
-                if (bagList.isEmpty) {
-                  return Skeletonizer(
-                    enabled: true,
-                    child: BagProductItem(
-                      data: const MyBagEntity(
-                        isUsed: false,
-                        use: false,
+    final it = item;
+    final canSend = it != null && it.using == 0;
+    return SafeArea(
+      top: false,
+      child: Padding(
+        padding: EdgeInsets.fromLTRB(16.w, 6.h, 16.w, 10.h),
+        child: Row(
+          children: [
+            if (canSend) ...[
+              Expanded(
+                flex: 2,
+                child: StorePillButton(
+                  enabled: true,
+                  outlined: true,
+                  onTap: () => _openSendSheet(context, it),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.card_giftcard_rounded,
+                          color: StoreColors.lilacA, size: 17.sp),
+                      6.wBox,
+                      Text(
+                        StringManager.send.tr(),
+                        style: TextStyle(
+                          color: StoreColors.lilacA,
+                          fontSize: 14.sp,
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
-                      tabType: tabType,
-                    ),
-                  );
-                }
-
-                return Skeletonizer(
-                  enabled: isLoading,
-                  child: BagProductItem(
-                    data: bagList[index],
-                    tabType: tabType,
+                    ],
                   ),
-                );
-              },
+                ),
+              ),
+              12.wBox,
+            ],
+            Expanded(
+              flex: 3,
+              child: StorePillButton(
+                enabled: it != null,
+                onTap: () => _toggleUse(it!),
+                child: Center(
+                  child: AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 200),
+                    child: Text(
+                      (it?.isUsed ?? false)
+                          ? StringManager.unUse.tr()
+                          : StringManager.use.tr(),
+                      key: ValueKey(it?.isUsed),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 14.sp,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
             ),
-          ),
+          ],
         ),
-        if (selectedItem != null)
-          SafeArea(
-            top: false,
-            child: Container(
-              width: double.infinity,
-              padding: EdgeInsets.fromLTRB(
-                15.w,
-                11.h,
-                15.w,
-                11.h,
-              ),
-              decoration: BoxDecoration(
-                gradient: const LinearGradient(
-                  begin: Alignment.centerLeft,
-                  end: Alignment.centerRight,
-                  colors: [
-                    Color(0xFF240C65),
-                    Color(0xFF37108D),
-                    Color(0xFF1B0A56),
-                  ],
-                ),
-                border: Border(
-                  top: BorderSide(
-                    color: const Color(0xFF7446E8)
-                        .withValues(alpha: 0.45),
-                  ),
-                ),
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF4F20CA)
-                        .withValues(alpha: 0.25),
-                    blurRadius: 22.r,
-                    offset: Offset(0, -5.h),
-                  ),
-                ],
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: TextWidget(
-                      selectedItem!.name ?? '',
-                      isTranslate: false,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: context.bodyMedium
-                          .size(14)
-                          .bold
-                          .colorExt(Colors.white),
-                    ),
-                  ),
-                  if (selectedItem!.using == 0) ...[
-                    Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: () =>
-                            _openSendSheet(context, selectedItem!),
-                        borderRadius: BorderRadius.circular(22.r),
-                        child: Ink(
-                          height: 42.h,
-                          padding:
-                          EdgeInsets.symmetric(horizontal: 18.w),
-                          decoration: BoxDecoration(
-                            borderRadius:
-                            BorderRadius.circular(22.r),
-                            gradient: const LinearGradient(
-                              colors: [
-                                Color(0xFF8E2BFF),
-                                Color(0xFFFF39D7),
-                              ],
-                            ),
-                            border: Border.all(
-                              color: Colors.white
-                                  .withValues(alpha: 0.42),
-                            ),
-                          ),
-                          child: Center(
-                            child: TextWidget(
-                              StringManager.send.tr(),
-                              style: context.bodyMedium
-                                  .size(13)
-                                  .bold
-                                  .colorExt(Colors.white),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                    8.wBox,
-                  ],
-                  Material(
-                    color: Colors.transparent,
-                    child: InkWell(
-                      onTap: () =>
-                          _toggleUse(context, selectedItem!),
-                      borderRadius: BorderRadius.circular(22.r),
-                      child: Ink(
-                        height: 42.h,
-                        padding:
-                        EdgeInsets.symmetric(horizontal: 22.w),
-                        decoration: BoxDecoration(
-                          borderRadius:
-                          BorderRadius.circular(22.r),
-                          gradient: const LinearGradient(
-                            colors: [
-                              Color(0xFF5B3CFF),
-                              Color(0xFF29D7FF),
-                            ],
-                          ),
-                          border: Border.all(
-                            color:
-                            Colors.white.withValues(alpha: 0.60),
-                          ),
-                        ),
-                        child: Center(
-                          child: TextWidget(
-                            selectedItem!.isUsed
-                                ? StringManager.unUse.tr()
-                                : StringManager.use.tr(),
-                            style: context.bodyMedium
-                                .size(13)
-                                .bold
-                                .colorExt(Colors.white),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-      ],
+      ),
     );
   }
 }
-

@@ -388,6 +388,13 @@ class EndPoints {
   // Room list with last_seq + my_last_read_seq.
   static const String syncRooms = "$_apiV1/sync/rooms";
 
+  // Manual recharge (bKash/Nagad/Bank): the user pays outside the app, sends
+  // the TrxID + screenshot, and an admin approves it in the panel.
+  static const String manualPaymentMethods = "$_apiV1/manual-payment/methods";
+  static const String manualPaymentPackages = "$_apiV1/manual-payment/packages";
+  static const String manualPaymentSubmit = "$_apiV1/manual-payment/submit";
+  static const String manualPaymentHistory = "$_apiV1/manual-payment/history";
+
   /// Messages newer than [sinceSeq] (gap-fill / recovery fallback).
   static String roomMessagesSince(int roomId, int sinceSeq) =>
       "$_apiV1/rooms/$roomId/messages?since_seq=$sinceSeq";

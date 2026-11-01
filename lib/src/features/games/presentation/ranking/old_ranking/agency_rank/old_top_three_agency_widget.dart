@@ -3,6 +3,7 @@ import 'package:general/src/core/widgets/show_svga.dart';
 import 'package:general/src/features/agency/presentation/host_agency/bloc/manager_show_agency/show_agency_bloc.dart';
 import 'package:general/src/features/agency/presentation/search_agency_screen/view/show_hosts_agency.dart';
 import 'package:general/src/features/games/domain/entities/agency_ranking_entity.dart';
+import '../rank_theme.dart';
 
 class OldTopThreeAgencyWidget extends StatelessWidget {
   final List<AgencyRankingEntity> agencyEntity;
@@ -26,55 +27,125 @@ class OldTopThreeAgencyWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      height: 420.h,
-      child: Stack(
-        clipBehavior: Clip.none,
-        alignment: AlignmentDirectional.center,
-        children: [
-          Positioned(
-            top: -15.h,
-            child: LeaderboardCardWidget(
-              agencyEntity: agencyEntity.isNotEmpty ? agencyEntity[0] : null,
-              frameImage: AssetsManager.wealthRank1Frame,
-              isUpper: true,
-              assetImage: AssetsManager.rankWealthFrame1,
-              isPhoto: isPhoto,
+    AgencyRankingEntity? at(int i) =>
+        i < agencyEntity.length ? agencyEntity[i] : null;
+    return RankPodium(
+      isPhoto: isPhoto,
+      frames: (rank) => switch (rank) {
+        1 => (AssetsManager.wealthRank1Frame, AssetsManager.rankWealthFrame1),
+        2 => (AssetsManager.wealthRank2Frame, AssetsManager.rankWealthFrame2),
+        _ => (AssetsManager.wealthRank3Frame, AssetsManager.rankWealthFrame3),
+      },
+      onTap: (rank) => openAgency(context, at(rank - 1)),
+      avatar: (rank, size) {
+        final agency = at(rank - 1);
+        return ClipOval(
+          child: agency == null
+              ? Container(
+                  width: size,
+                  height: size,
+                  color: Colors.white.withValues(alpha: 0.25),
+                )
+              : UserImage(
+                  image: agency.img,
+                  displayName: agency.name,
+                  imageSize: size,
+                  uniquId: '${agency.id}',
+                  boxFit: BoxFit.cover,
+                ),
+        );
+      },
+      info: (rank, compact) {
+        final agency = at(rank - 1);
+        if (agency == null) return null;
+        return AgencyRankInfo(agency: agency, centered: true, compact: compact);
+      },
+    );
+  }
+}
+
+/// Opens the agency's hosts page.
+void openAgency(BuildContext context, AgencyRankingEntity? agency) {
+  if (agency == null) return;
+  di<ShowAgencyBloc>()
+      .add(ShowAgencyEvent(agencyId: agency.id, isFirstLoading: true));
+  Navigator.push(
+    context,
+    MaterialPageRoute(
+      builder: (context) =>
+          const ShowHostsAgency(agencyData: null, isProfile: true),
+    ),
+  );
+}
+
+/// Agency name (scrolls when long), ID and score.
+class AgencyRankInfo extends StatelessWidget {
+  const AgencyRankInfo({
+    super.key,
+    required this.agency,
+    this.centered = false,
+    this.compact = false,
+    this.showValue = true,
+  });
+
+  final AgencyRankingEntity agency;
+  final bool centered;
+  final bool compact;
+  final bool showValue;
+
+  @override
+  Widget build(BuildContext context) {
+    final rowAlign =
+        centered ? MainAxisAlignment.center : MainAxisAlignment.start;
+    return Column(
+      crossAxisAlignment:
+          centered ? CrossAxisAlignment.center : CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        SizedBox(
+          height: 20.h,
+          child: AutoScrollText(
+            text: agency.name,
+            textAlign: centered ? TextAlign.center : TextAlign.start,
+            style: TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: (compact ? 13 : 14).sp,
             ),
           ),
-          Positioned(
-            bottom: 0.h,
-            child: SizedBox(
-              width: ScreenUtil().screenWidth,
-              child: Stack(
-                alignment: AlignmentDirectional.center,
-                children: [
-                  Align(
-                    alignment: AlignmentDirectional.topStart,
-                    child: LeaderboardCardWidget(
-                      agencyEntity:
-                          agencyEntity.length > 2 ? agencyEntity[1] : null,
-                      frameImage: AssetsManager.wealthRank2Frame,
-                      assetImage: AssetsManager.rankWealthFrame2,
-                      isPhoto: isPhoto,
-                    ),
-                  ),
-                  Align(
-                    alignment: AlignmentDirectional.topEnd,
-                    child: LeaderboardCardWidget(
-                      agencyEntity:
-                          agencyEntity.length > 2 ? agencyEntity[2] : null,
-                      frameImage: AssetsManager.wealthRank3Frame,
-                      assetImage: AssetsManager.rankWealthFrame3,
-                      isPhoto: isPhoto,
-                    ),
-                  ),
-                ],
+        ),
+        3.hBox,
+        Text(
+          'ID:${agency.id}',
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.9),
+            fontSize: (compact ? 12 : 13).sp,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        if (showValue) ...[
+          4.hBox,
+          Row(
+            mainAxisAlignment: rowAlign,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ImageWidget(
+                  image: AssetsManager.rankWealthIcon,
+                  height: 16.h,
+                  width: 16.w),
+              4.wBox,
+              Text(
+                agency.exp,
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: (compact ? 13 : 14).sp,
+                  fontWeight: FontWeight.w600,
+                ),
               ),
-            ),
+            ],
           ),
         ],
-      ),
+      ],
     );
   }
 }

@@ -1,5 +1,8 @@
 import 'package:general/src/core/index.dart';
+import 'package:general/src/features/agency/presentation/host_agency/view/widgets/agency_ui.dart';
 
+/// Stat card (Profits, Diamond, On-mic time...): label + value on the left,
+/// the stat's icon in a tinted tile on the right.
 class MonthlyDataItemWidget extends StatelessWidget {
   final String title;
   final String? subTitle;
@@ -25,66 +28,67 @@ class MonthlyDataItemWidget extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Expanded(
-      child: GestureDetector(
+      child: AgencyCard(
         onTap: onTap,
-        child: Container(
-          padding: context.paddingAll(10),
-          decoration: BoxDecoration(
-            color: ColorManager.white,
-            borderRadius: 8.radius,
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: (0.8)), // Shadow color
-                // offset: const Offset(1, 1), // Shadow offset (x, y)
-                // blurRadius: 1, // Spread of the shadow
-                // spreadRadius: 1, // Intensity around the edges
-              ),
-            ],
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Column(
+        padding: EdgeInsets.fromLTRB(12.w, 12.h, 10.w, 12.h),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(
                     children: [
-                      TextWidget(
-                        title,
-                        style: context.bodyMedium
-                            .size(12)
-                            .colorExt(ColorManager.momentPostTextColor),
+                      Flexible(
+                        child: Text(
+                          title,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            color: AgencyUI.muted,
+                            fontSize: 12.sp,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
                       ),
-                      subIcon ?? const SizedBox(),
+                      if (subIcon != null)
+                        SizedBox(height: 22.h, child: subIcon),
                     ],
                   ),
+                  4.hBox,
                   SizedBox(
-                    //  width: 60.w,
-                    height: 30.h,
+                    height: 26.h,
                     child: FittedBox(
-                      child: TextWidget(
-                        value ?? 0.toString(),
-                        // Fixed black (was the per-card accent `textColor`),
-                        // on request -- every card's value now matches its
-                        // label instead of each stat having its own hue.
-                        style: context.bodyMedium
-                            .colorExt(ColorManager.momentPostTextColor)
-                            .size(18),
-                        // overflow: TextOverflow.ellipsis,
+                      fit: BoxFit.scaleDown,
+                      alignment: AlignmentDirectional.centerStart,
+                      // Value stays black like its label (on request).
+                      child: Text(
+                        value ?? '0',
+                        style: TextStyle(
+                          color: AgencyUI.ink,
+                          fontSize: 20.sp,
+                          fontWeight: FontWeight.w800,
+                        ),
                       ),
                     ),
                   ),
                 ],
               ),
-              const Spacer(),
-              (icon is String)
-                  ? Image.asset(
-                      icon,
-                      scale: scale ?? 4,
-                    )
+            ),
+            6.wBox,
+            Container(
+              width: 40.w,
+              height: 40.w,
+              padding: EdgeInsets.all(7.w),
+              decoration: BoxDecoration(
+                color: textColor.withValues(alpha: .10),
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: (icon is String)
+                  ? Image.asset(icon, fit: BoxFit.contain)
                   : icon,
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );

@@ -7,6 +7,25 @@ import '../../../../../../core/index.dart';
 class YoutubeBloc extends Bloc<YoutubeEvent, YoutubeState> {
   YoutubePlayerController? controller;
 
+  /// The room's "sound off" switch. The video plays on each phone, so
+  /// sound-off has to mute this player too, not just the room's voices.
+  bool get _roomSoundOff =>
+      RoomData.instance.utdController?.mediaController.isAllRemoteAudioMuted
+          .value ==
+      true;
+
+  /// Whether the current video already got the sound-off applied (the
+  /// iframe ignores mute until it is actually playing).
+  bool _muteApplied = false;
+
+  /// Mutes/unmutes the video to match the room's "sound off" switch.
+  void applyRoomSoundMute() {
+    final c = controller;
+    if (c == null) return;
+    _roomSoundOff ? c.mute() : c.unMute();
+    _muteApplied = true;
+  }
+
   YoutubeBloc() : super(YoutubeStateInitial()) {
     on<ViewYoutubeVideoEvent>((event, emit) async {
       bool showController =
@@ -34,8 +53,14 @@ class YoutubeBloc extends Bloc<YoutubeEvent, YoutubeState> {
                 origin: 'https://www.youtube-nocookie.com',
               ),
             );
+      _muteApplied = false;
       emit(GetViewYoutubeSuccessState(controller!));
       controller!.listen((youtubePlayerValue) async {
+        // Start muted if the room's sound is off.
+        if (!_muteApplied &&
+            youtubePlayerValue.playerState == PlayerState.playing) {
+          applyRoomSoundMute();
+        }
         if (showController) {
           if (youtubePlayerValue.playerState == PlayerState.paused ||
               youtubePlayerValue.playerState == PlayerState.ended) {

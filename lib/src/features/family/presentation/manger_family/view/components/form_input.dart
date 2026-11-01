@@ -44,7 +44,7 @@ class _FormWidget extends StatelessWidget {
                 label: TextWidget(
                   StringManager.familyName.tr(),
                   style: context.bodyLarge.colorExt(
-                    ColorManager.secondaryText,
+                    ColorManager.grey,
                   ),
                 ),
                 contentPadding: context.paddingOnly(
@@ -74,7 +74,7 @@ class _FormWidget extends StatelessWidget {
                  label: TextWidget(
                   StringManager.pleaseEnterFamilyDescription.tr(),
                   style: context.bodyLarge.colorExt(
-                    ColorManager.secondaryText,
+                    ColorManager.grey,
                   ),
                 ),
                 controller: state.bio,
@@ -89,7 +89,7 @@ class _FormWidget extends StatelessWidget {
                   return null;
                 },
                 hintStyle: context.bodyLarge.colorExt(
-                  ColorManager.secondaryText,
+                  ColorManager.grey,
                 ),
                  contentPadding: context.paddingOnly(
                   start: 10,

@@ -68,7 +68,8 @@ class PrivacyPolicyPage extends StatelessWidget {
 /// Play Store checks that your Data Safety form and policy text agree.
 const String _defaultPrivacyPolicyHtml = '''
 <h2>Privacy Policy — iamParty</h2>
-<p><b>Effective date:</b> September 6, 2026<br/>
+<p><b>Effective date:</b> October 31, 2026<br/>
+<b>Last updated:</b> October 31, 2026<br/>
 <b>Website:</b> https://iamparty.linlive.fr<br/>
 <b>Contact:</b> help24imran@gmail.com</p>
 
@@ -83,6 +84,7 @@ const String _defaultPrivacyPolicyHtml = '''
 <li><b>Profile information:</b> display name, username, profile photo, cover photo, gender, birthday, country, and any bio/description you add.</li>
 <li><b>User content:</b> photos, videos, live broadcasts, voice/video room activity, text messages, group posts, comments, and gifts you send or receive.</li>
 <li><b>Payment information:</b> when you purchase coins, diamonds, VIP, or other virtual items, payment is processed by the Google Play billing system or our third-party payment gateway. We do not collect or store your full card number; we receive only confirmation of successful payment and the amount/product purchased.</li>
+<li><b>Seller (manual) recharge:</b> if you top up through an in-app Seller using a mobile wallet or bank transfer (such as bKash or Nagad), you provide the sending wallet/account number, the transaction ID, optionally the sender's name, and optionally a screenshot of the payment receipt. We use this only to verify your payment and credit your account, and keep it with your recharge history for record-keeping and fraud prevention. We never ask for your wallet PIN or password.</li>
 <li><b>Communications with us:</b> messages you send to customer support, including your contact email.</li>
 </ul>
 
@@ -121,6 +123,7 @@ const String _defaultPrivacyPolicyHtml = '''
 <li><b>Other users:</b> your public profile information, live broadcasts, and content you choose to share are visible to other users of the Service, as intended by the App's social features.</li>
 <li><b>Legal reasons:</b> if required by law, legal process, or governmental request, or to protect the rights, property, or safety of iamParty, our users, or the public.</li>
 <li><b>Business transfers:</b> if iamParty is involved in a merger, acquisition, or sale of assets, information may be transferred as part of that transaction, subject to this Policy.</li>
+<li><b>YouTube:</b> rooms can play YouTube videos using YouTube API Services. When you search for or play a video, your search terms and playback requests are sent to YouTube/Google. By using this feature you agree to the YouTube Terms of Service (https://www.youtube.com/t/terms), and Google's handling of that data is described in the Google Privacy Policy (https://policies.google.com/privacy). We do not store your YouTube viewing history.</li>
 </ul>
 <p>We do not share your data with third parties for their own advertising purposes.</p>
 
@@ -181,5 +184,4 @@ const String _defaultPrivacyPolicyHtml = '''
 <li><b>Website:</b> https://iamparty.linlive.fr</li>
 </ul>
 
-<p><i>This document is a general-purpose template covering disclosures commonly required for social/live-streaming apps with chat, virtual currency, and user-generated content, including the account-deletion disclosure Google Play requires. It is not legal advice. Please review it against your app's actual data practices (especially location/contacts, if unused, remove those lines) before publishing.</i></p>
 ''';

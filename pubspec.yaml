@@ -8,11 +8,11 @@ description: "General App from UTD Software Solutions Company."
 publish_to: "none"
 
 # Version and build number
-version: 1.0.16+17
+version: 1.0.28+29
 
 environment:
   # Dart SDK version constraint
-  # Floor raised to 3.7.0 for centrifuge 0.19.x (requires Dart >=3.7).
+  # Floor rais6d to 3.7.0 for centrifuge 0.19.x (requires Dart >=3.7).
   # Toolchain in use is Dart 3.12 / Flutter 3.44, so this is satisfied.
   sdk: ">=3.7.0 <4.0.0"
 

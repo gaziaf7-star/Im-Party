@@ -29,7 +29,7 @@ class ManagerFamilyPage extends StatelessWidget {
         }
       },
       child: Scaffold(
-        backgroundColor: ColorManager.scaffoldBg,
+        backgroundColor: Colors.white,
         appBar: AppBarWidget(
           title: data == null ? StringManager.newFamily.tr() : StringManager.edit.tr(),
         ),
@@ -49,7 +49,7 @@ class ManagerFamilyPage extends StatelessWidget {
                       StringManager.profilePicture.tr(),
                       textAlign: TextAlign.center,
                       style: context.bodySmall.w500
-                          .colorExt(ColorManager.secondaryText)
+                          .colorExt(ColorManager.grey)
                           .size(14),
                     ),
                     _PickImageBody(

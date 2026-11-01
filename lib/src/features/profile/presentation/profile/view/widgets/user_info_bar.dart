@@ -94,15 +94,16 @@ class _UserNameRow extends StatelessWidget {
 
           return FittedBox(
             child: GradientTextVip(
-              width: ConstantsManager.isTheme1 == true ? 200.w : 150.w,
+              width: ConstantsManager.isTheme1 == true ? 260.w : 190.w,
               isVip: isVip,
               text: '${user.name}',
               color: vipColor,
               mainAxisAlignment: MainAxisAlignment.start,
               textAlign: TextAlign.center,
-              textStyle: context.bodyMedium.w600
+              // Larger, bolder name (owner request).
+              textStyle: context.bodyMedium.w800
                   .size(
-                ConstantsManager.isTheme1 == true ? 17.0 : 15.0,
+                ConstantsManager.isTheme1 == true ? 22.0 : 19.0,
               )
                   .colorExt(vipColor),
             ),

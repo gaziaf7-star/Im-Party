@@ -20,13 +20,13 @@ class IndicatorRowWidget extends StatelessWidget {
               style: context.bodyMedium
                   .size(13)
                   .w600
-                  .colorExt(ColorManager.textPrimary)),
+                  .colorExt(ColorManager.momentPostTextColor)),
           const Spacer(),
           if (onTap != null) ...[
             Icon(
               Icons.arrow_forward_ios,
               size: 15.w,
-              color: ColorManager.textPrimary,
+              color: ColorManager.momentPostTextColor,
             ),
           ],
         ],

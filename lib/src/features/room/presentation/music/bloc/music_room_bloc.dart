@@ -85,6 +85,41 @@ class MusicRoomBloc extends Bloc<MusicRoomEvent, MusicRoomStates> {
 
   String get _myId => MyDataModel.getInstance().id.toString();
 
+  /// URI of the song the local player is loading/playing.
+  String _currentUri = '';
+
+  /// Music reaches listeners by ONE route only, or they hear it twice:
+  ///  * server songs (http): every phone plays its own synced copy, so the
+  ///    DJ must NOT also push the music through the mic;
+  ///  * songs from the DJ's own phone storage: listeners can't load that
+  ///    path, so the DJ's mic carries the music and listeners don't play it.
+  bool _viaMic(String uri) => uri.isNotEmpty && !uri.startsWith('http');
+
+  bool get _isDj => RoomData.instance.musicControllerUserId == _myId;
+
+  /// The room's "sound off" (mute all remote audio) switch.
+  bool get _roomSoundOff =>
+      RoomData.instance.utdController?.mediaController.isAllRemoteAudioMuted
+              .value ==
+          true ||
+      LiveRoomData.instance.liveController?.mediaController
+              .isAllRemoteAudioMuted.value ==
+          true;
+
+  /// Player volume (0..1) for a 0..100 [volume]. Room "sound off" also
+  /// silences the local music, since listeners play it locally rather than
+  /// receive it through the room. The DJ's player is left alone when it is
+  /// feeding the mic, or the music would cut out for everyone.
+  double _volumeFor(double volume) {
+    if (_roomSoundOff && !(_isDj && _viaMic(_currentUri))) return 0;
+    return volume / 100;
+  }
+
+  /// Re-applies the room "sound off" switch to the music player. Called
+  /// whenever that switch changes.
+  Future<void> applyRoomSoundMute() =>
+      _safeAudioOp(() => state.audioPlayer.setVolume(_volumeFor(state.volume)));
+
   /// Broadcasts [action] to all room users. No-op when applying a remote
   /// action (avoids feedback loops) or when this user is not the active DJ
   /// (only the DJ may drive shared playback).
@@ -169,6 +204,7 @@ class MusicRoomBloc extends Bloc<MusicRoomEvent, MusicRoomStates> {
       await state.audioPlayer.stop();
 
       if (_isDisposed || isClosed) return;
+      _currentUri = uri;
       if (uri.startsWith('http')) {
         await state.audioPlayer.setSource(UrlSource(uri));
       } else {
@@ -178,10 +214,8 @@ class MusicRoomBloc extends Bloc<MusicRoomEvent, MusicRoomStates> {
       if (_isDisposed || isClosed) return;
       await state.audioPlayer.resume();
 
-      if (state.volume > 0) {
-        if (_isDisposed || isClosed) return;
-        await state.audioPlayer.setVolume(state.volume / 100);
-      }
+      if (_isDisposed || isClosed) return;
+      await state.audioPlayer.setVolume(_volumeFor(state.volume));
 
       if (_isDisposed || isClosed) return;
       emit(state.copyWith(
@@ -283,8 +317,10 @@ class MusicRoomBloc extends Bloc<MusicRoomEvent, MusicRoomStates> {
       final playing = playerState == PlayerState.playing;
       // Only the DJ publishes; a listener mirroring someone else's track must
       // not degrade their own mic for audio they are merely receiving.
-      final isDj = RoomData.instance.musicControllerUserId == _myId;
-      _applyMusicMode(playing && isDj);
+      // ...and only for songs from the DJ's own storage. Server songs are
+      // already played on every phone; sending them through the mic too
+      // made listeners hear the music twice.
+      _applyMusicMode(playing && _isDj && _viaMic(_currentUri));
     });
   }
 
@@ -557,7 +593,8 @@ class MusicRoomBloc extends Bloc<MusicRoomEvent, MusicRoomStates> {
   Future<void> _setVolume(
       SetVolumeRoomEvent event, Emitter<MusicRoomStates> emit) async {
     emit(state.copyWith(volume: event.volume));
-    await _safeAudioOp(() => state.audioPlayer.setVolume(event.volume / 100));
+    await _safeAudioOp(
+        () => state.audioPlayer.setVolume(_volumeFor(event.volume)));
     // Volume is synced globally — the DJ's volume applies to everyone.
     if (state.isSongPlaying) _broadcast(MusicAction.volume);
   }
@@ -602,6 +639,8 @@ class MusicRoomBloc extends Bloc<MusicRoomEvent, MusicRoomStates> {
       currentPosition: Duration.zero,
       audioPlayer: AudioPlayer(),
     ));
+    _currentUri = '';
+    _bindMusicModeToPlayback(state.audioPlayer);
   }
 
   Future<void> _setPlayMusicForReceiver(
@@ -683,7 +722,7 @@ class MusicRoomBloc extends Bloc<MusicRoomEvent, MusicRoomStates> {
         case MusicAction.volume:
           emit(state.copyWith(volume: event.volume));
           await _safeAudioOp(
-              () => state.audioPlayer.setVolume(event.volume / 100));
+              () => state.audioPlayer.setVolume(_volumeFor(event.volume)));
           break;
 
         case MusicAction.seekTo:
@@ -732,9 +771,24 @@ class MusicRoomBloc extends Bloc<MusicRoomEvent, MusicRoomStates> {
     );
 
     await _safeAudioOp(() => state.audioPlayer.stop());
+    _currentUri = event.songUrl;
+    if (_viaMic(event.songUrl)) {
+      emit(state.copyWith(
+        musicesInRoom: [song],
+        nowPlaying: 0,
+        songUrl: event.songUrl,
+        volume: event.volume,
+        isSongPlaying: true,
+        isPlayingSongFloatAnimation: true,
+        isPlayingSongInnerDialogUi: true,
+      ));
+      return;
+    }
     await _safeAudioOp(() => state.audioPlayer.setSource(UrlSource(event.songUrl)));
+    // Volume before resume, so a muted room never blips out loud.
+    await _safeAudioOp(
+        () => state.audioPlayer.setVolume(_volumeFor(event.volume)));
     await _safeAudioOp(() => state.audioPlayer.resume());
-    await _safeAudioOp(() => state.audioPlayer.setVolume(event.volume / 100));
     if (event.positionMs > 0) {
       await _safeAudioOp(() =>
           state.audioPlayer.seek(Duration(milliseconds: event.positionMs)));

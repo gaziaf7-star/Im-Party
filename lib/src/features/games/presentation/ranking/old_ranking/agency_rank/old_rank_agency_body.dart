@@ -134,7 +134,7 @@ class _OldRankAgencyBodyState extends State<OldRankAgencyBody>
                             SliverToBoxAdapter(
                               child: Padding(
                                 padding:
-                                    context.paddingSymmetric(horizontal: 20),
+                                    EdgeInsets.zero,
                                 child: ValueListenableBuilder<int>(
                                   valueListenable:
                                       OldRankScreenState.innerTabNotifier,
@@ -190,7 +190,7 @@ class _OldRankAgencyBodyState extends State<OldRankAgencyBody>
                             SliverToBoxAdapter(
                               child: Padding(
                                 padding:
-                                    context.paddingSymmetric(horizontal: 20),
+                                    EdgeInsets.zero,
                                 child: ValueListenableBuilder<int>(
                                   valueListenable:
                                       OldRankScreenState.innerTabNotifier,
@@ -247,7 +247,7 @@ class _OldRankAgencyBodyState extends State<OldRankAgencyBody>
                             SliverToBoxAdapter(
                               child: Padding(
                                 padding:
-                                    context.paddingSymmetric(horizontal: 20),
+                                    EdgeInsets.zero,
                                 child: ValueListenableBuilder<int>(
                                   valueListenable:
                                       OldRankScreenState.innerTabNotifier,
@@ -304,7 +304,7 @@ class _OldRankAgencyBodyState extends State<OldRankAgencyBody>
                             SliverToBoxAdapter(
                               child: Padding(
                                 padding:
-                                    context.paddingSymmetric(horizontal: 20),
+                                    EdgeInsets.zero,
                                 child: ValueListenableBuilder<int>(
                                   valueListenable:
                                       OldRankScreenState.innerTabNotifier,

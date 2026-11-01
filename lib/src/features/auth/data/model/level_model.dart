@@ -22,6 +22,8 @@ class LevelModel extends LevelEntity {
     super.expReceiver,
     super.currentReceiver,
     super.currentSender,
+    super.totalSent,
+    super.totalReceived,
   });
 
   factory LevelModel.fromJson(Map<String, dynamic> map) {
@@ -43,6 +45,10 @@ class LevelModel extends LevelEntity {
       receiverImage: parseValue<String>(map['receiver_img'], ''),
       expSender: parseValue<String>(map['exp-sender'], ''),
       expReceiver: parseValue<String>(map['exp_receiver'], ''),
+      totalSent: parseValue<String>(
+          map['total_sent_coins'] ?? map['total_sent'], ''),
+      totalReceived: parseValue<String>(
+          map['total_received_coins'] ?? map['total_received'], ''),
       currentReceiver: parseValue<int>(map['current_receiver_num'], 0),
       currentSender: parseValue<int>(map['current_sender_num'], 0),
     );
@@ -68,6 +74,8 @@ class LevelModel extends LevelEntity {
       expSender: expSender,
       currentReceiver: currentReceiver,
       currentSender: currentSender,
+      totalSent: totalSent,
+      totalReceived: totalReceived,
     );
   }
 }

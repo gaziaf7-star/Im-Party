@@ -1,3 +1,4 @@
+import 'package:general/src/features/agency/presentation/host_agency/view/widgets/agency_ui.dart';
 import 'package:general/src/core/index.dart';
 import 'package:general/src/core/widgets/id_with_copy.dart';
 import 'package:general/src/features/agency/data/model/agency_history_model.dart';
@@ -238,7 +239,7 @@ class _TabBarViewBody extends StatelessWidget {
           return _CustomRowData(
             model: data![index],
             isUser: isUser,
-          );
+          ).agencyEntrance(index);
         },
       ),
     );

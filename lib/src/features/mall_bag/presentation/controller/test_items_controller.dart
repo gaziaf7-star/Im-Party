@@ -230,7 +230,8 @@ class TestItemsController {
   }
 
   void _showFrameDialog(BuildContext context, TestMallBagParam param) {
-    final previewSize = ScreenUtil().screenWidth * 0.88;
+    // Frame + avatar at a comfortable size (was 88% of the screen, too big).
+    final previewSize = ScreenUtil().screenWidth * 0.56;
     final avatarSize = previewSize * 0.43;
 
     svgDialog(

@@ -3,6 +3,7 @@ import 'package:general/src/features/payment/presentation/bloc/buy_coins_bloc/bu
 import 'package:general/src/features/payment/presentation/bloc/buy_coins_bloc/buy_coins_event.dart';
 import 'package:general/src/features/payment/presentation/bloc/buy_coins_bloc/buy_coins_state.dart';
 import 'package:general/src/features/profile/presentation/coins/bloc/my_store_bloc/my_store_bloc.dart';
+import 'package:general/src/core/widgets/md_indicator.dart';
 
 import '../../../../../reels_viewer/reels_viewer.dart';
 
@@ -31,224 +32,178 @@ class CoinsTabBar extends StatefulWidget {
 class _CoinsTabBarState extends State<CoinsTabBar> {
   @override
   Widget build(BuildContext context) {
-    // The old "Profits" (USD earnings) tab has been removed from this
-    // screen per request -- only My Coins and Diamond remain.
-    final tabIndex = widget.controller.index;
-    final String currentTabLabel =
-    tabIndex == 0 ? StringManager.coins.tr() : StringManager.diamond.tr();
-
+    // White header block (tabs + balance card) with rounded bottom corners
+    // over the grey page, as in the reference wallet.
     return BlocBuilder<BuyCoinsBloc, BuyCoinsState>(
       bloc: di<BuyCoinsBloc>(),
       buildWhen: (prev, curr) => prev.controllerIndex != curr.controllerIndex,
       builder: (context, state) {
-        return Stack(
-          clipBehavior: Clip.none,
-          children: [
-            _buildBackgroundIcon(state),
-            _buildTabBar(context, state),
-
-            // Conditional tab content
-            if (currentTabLabel == StringManager.coins.tr())
-              _buildCoinsUI(state)
-            else
-              _buildDiamondsUI(state),
-          ],
+        final coins = state.controllerIndex == 0;
+        return Container(
+          padding: EdgeInsets.fromLTRB(16.w, 4.h, 16.w, 16.h),
+          decoration: BoxDecoration(
+            color: ColorManager.white,
+            borderRadius: BorderRadius.vertical(bottom: Radius.circular(20.r)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildTabBar(context),
+              12.hBox,
+              coins
+                  ? _BalanceCard(
+                      iconPath: AssetsManager.coinsVip,
+                      valueBuilder: (s) => s?.coins.toString() ?? '0',
+                      recordRoute: Routes.billPage,
+                      colors: const [Color(0xFFFFF4D9), Color(0xFFFBC8A6)],
+                      accent: const Color(0xFFF08A2C),
+                    )
+                  : _BalanceCard(
+                      // Shows earned_coins, as before.
+                      iconPath: AssetsManager.diamondsIcon,
+                      valueBuilder: (s) => s?.earnedCoins.toString() ?? '0',
+                      recordRoute: Routes.diamondRecord,
+                      colors: const [Color(0xFFF1E9FF), Color(0xFFD5C2FF)],
+                      accent: const Color(0xFF8A56E8),
+                    ),
+            ],
+          ),
         );
       },
     );
   }
 
-  Widget _buildBackgroundIcon(BuyCoinsState state) {
-    return Positioned(
-      top: -4,
-      right: 120,
-      child: Image.asset(
-        state.controllerIndex == 0
-            ? AssetsManager.coinsVip
-            : AssetsManager.diamondsIcon,
-        width: 130.w,
-        fit: BoxFit.fill,
-        opacity: const AlwaysStoppedAnimation(0.1),
+  Widget _buildTabBar(BuildContext context) {
+    return TabBar(
+      controller: widget.controller,
+      isScrollable: true,
+      tabAlignment: TabAlignment.start,
+      dividerHeight: 0,
+      overlayColor: WidgetStateColor.transparent,
+      indicatorSize: TabBarIndicatorSize.label,
+      indicator: MDIndicator(
+        indicatorColor: const Color(0xFF1C1C1E),
+        indicatorWidth: 14.w,
+        indicatorHeight: 4.h,
+        radius: 20,
       ),
+      onTap: (value) =>
+          di<BuyCoinsBloc>().add(ChangeValueEvent(controllerIndex: value)),
+      labelPadding: context.paddingOnly(end: 28),
+      labelColor: const Color(0xFF1C1C1E),
+      unselectedLabelColor: const Color(0xFF9A9AA0),
+      labelStyle: TextStyle(fontSize: 20.sp, fontWeight: FontWeight.w800),
+      unselectedLabelStyle:
+          TextStyle(fontSize: 18.sp, fontWeight: FontWeight.w500),
+      tabs: [
+        Tab(text: StringManager.coins.tr(), height: 44.h),
+        if (widget.showDiamondTab)
+          Tab(text: StringManager.diamond.tr(), height: 44.h),
+      ],
     );
   }
+}
 
-  Widget _buildTabBar(BuildContext context, BuyCoinsState state) {
+/// Soft gradient balance card: icon + big number, "Account Balance >" (opens
+/// the record), and two round shortcuts at the top right (record and
+/// buy-from-reseller).
+class _BalanceCard extends StatelessWidget {
+  const _BalanceCard({
+    required this.iconPath,
+    required this.valueBuilder,
+    required this.recordRoute,
+    required this.colors,
+    required this.accent,
+  });
+
+  final String iconPath;
+  final String Function(MyStoreEntity? myStore) valueBuilder;
+  final String recordRoute;
+  final List<Color> colors;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      padding: context.paddingOnly(bottom: 50),
+      width: double.infinity,
+      height: 150.h,
+      padding: EdgeInsets.fromLTRB(20.w, 16.h, 14.w, 16.h),
       decoration: BoxDecoration(
-        // Professional light look on request: a soft tint of the current
-        // accent (coins/diamonds/profits) instead of a bold flat fill, so
-        // the page reads as white/light overall while still hinting which
-        // tab is active.
+        borderRadius: BorderRadius.circular(18.r),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            (widget.color ?? ColorManager.primary).withValues(alpha: 0.16),
-            ColorManager.white,
-          ],
+          colors: colors,
         ),
-        borderRadius: BorderRadius.only(
-          bottomRight: Radius.circular(20.r),
-          bottomLeft: Radius.circular(20.r),
-        ),
-      ),
-      child: Container(
-        padding: context.paddingSymmetric(horizontal: 10, vertical: 5),
-        margin: context.paddingAll(15),
-        decoration: BoxDecoration(
-          color: ColorManager.white,
-          borderRadius: 30.radius,
-          boxShadow: [
-            BoxShadow(
-              color: ColorManager.black.withValues(alpha: 0.06),
-              blurRadius: 10.r,
-              offset: Offset(0, 3.h),
-            ),
-          ],
-        ),
-        child: TabBar(
-          controller: widget.controller,
-          isScrollable: false,
-          indicatorSize: TabBarIndicatorSize.tab,
-          dividerHeight: 0,
-          indicator: BoxDecoration(
-            color: (widget.color ?? ColorManager.primary).withValues(alpha: 0.16),
-            borderRadius: 25.radius,
+        boxShadow: [
+          BoxShadow(
+            color: colors.last.withValues(alpha: 0.35),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
-          onTap: (value) =>
-              di<BuyCoinsBloc>().add(ChangeValueEvent(controllerIndex: value)),
-          // Black in both states, on request — the tab's own TextWidget
-          // colour below is what actually paints (see note there), but
-          // these are kept consistent rather than left pointing at the
-          // old accent/secondaryText tokens.
-          labelColor: ColorManager.black,
-          indicatorColor: ColorManager.transparent,
-          labelPadding: context.paddingSymmetric(horizontal: 10, vertical: 5),
-          unselectedLabelStyle:
-          context.bodyMedium.colorExt(ColorManager.black).size(16),
-          labelStyle: context.bodyMedium.w700.colorExt(ColorManager.black),
-          tabs: [
-            TextWidget(StringManager.coins.tr(),
-                style:
-                context.bodyMedium.size(14).colorExt(ColorManager.black)),
-            if (widget.showDiamondTab)
-              TextWidget(StringManager.diamond.tr(),
-                  style: context.bodyMedium
-                      .size(14)
-                      .colorExt(ColorManager.black)),
-          ],
-        ),
+        ],
       ),
-    );
-  }
-
-  Widget _buildCoinsUI(BuyCoinsState state) {
-    return _buildCommonBottomSheet(
-      iconPath: AssetsManager.coinsVip,
-      valueBuilder: (myStore) => myStore?.coins.toString() ?? '0',
-      onTapRoute: Routes.billPage,
-    );
-  }
-
-  Widget _buildDiamondsUI(BuyCoinsState state) {
-    // Shows earned_coins now, not diamonds -- on request; card look/label
-    // stays the same.
-    return _buildCommonBottomSheet(
-      iconPath: AssetsManager.diamondsIcon,
-      valueBuilder: (myStore) => myStore?.earnedCoins.toString() ?? '0',
-      onTapRoute: Routes.diamondRecord,
-    );
-  }
-
-  Widget _buildCommonBottomSheet({
-    required String iconPath,
-    required String Function(MyStoreEntity? myStore) valueBuilder,
-    required String onTapRoute,
-  }) {
-    return Positioned(
-      bottom: -90.h,
-      child: Container(
-        width: 360.w,
-        height: 125.h,
-        margin: context.paddingSymmetric(horizontal: 15),
-        padding: context.paddingAll(10),
-        decoration: BoxDecoration(
-          color: ColorManager.white,
-          borderRadius: 14.radius,
-          border: Border.all(color: ColorManager.grey2.withValues(alpha: 0.3)),
-          boxShadow: [
-            BoxShadow(
-              color: ColorManager.black.withValues(alpha: 0.06),
-              blurRadius: 12.r,
-              offset: Offset(0, 4.h),
-            ),
-          ],
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Top Row
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      child: Stack(
+        children: [
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                TextWidget(widget.txt,
-                    style: context.bodyMedium
-                        .size(16)
-                        .w600
-                        .colorExt(ColorManager.black)),
-                InkWell(
-                  onTap: () => Navigator.pushNamed(context, onTapRoute),
-                  child: Container(
-                    padding:
-                    context.paddingSymmetric(horizontal: 15, vertical: 5),
-                    decoration: BoxDecoration(
-                      borderRadius: 20.radius,
-                      color: ColorManager.grey2.withValues(alpha: (0.15)),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Image.asset(iconPath, height: 38.h),
+                    8.wBox,
+                    BlocBuilder<MyStoreBloc, MyStoreState>(
+                      bloc: di<MyStoreBloc>(),
+                      buildWhen: (prev, curr) => prev.myStore != curr.myStore,
+                      builder: (context, myStoreState) {
+                        return ConstrainedBox(
+                          constraints: BoxConstraints(
+                            maxWidth: ScreenUtil().screenWidth * 0.7,
+                          ),
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              valueBuilder(myStoreState.myStore),
+                              style: TextStyle(
+                                color: const Color(0xFF1C1C1E),
+                                fontSize: 34.sp,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                    child: TextWidget(
-                      "${StringManager.record.tr()}>",
-                      style: context.bodyMedium.size(14).w600.colorExt(
-                          ColorManager.black),
-                    ),
+                  ],
+                ),
+                10.hBox,
+                GestureDetector(
+                  onTap: () => Navigator.pushNamed(context, recordRoute),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Account Balance',
+                        style: TextStyle(
+                          color: accent,
+                          fontSize: 18.sp,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Icon(Icons.chevron_right_rounded,
+                          color: accent, size: 22.sp),
+                    ],
                   ),
                 ),
               ],
             ),
-            8.hBox,
-            Row(
-              children: [
-                Image.asset(iconPath, height: 30),
-                5.wBox,
-                BlocBuilder<MyStoreBloc, MyStoreState>(
-                  bloc: di<MyStoreBloc>(),
-                  buildWhen: (prev, curr) => prev.myStore != curr.myStore,
-                  builder: (context, myStoreState) {
-                    return ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: ScreenUtil().screenWidth * 0.6,
-                        minWidth: 1,
-                      ),
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: AlignmentGeometry.topRight,
-                        child: TextWidget(
-                          valueBuilder(myStoreState.myStore),
-                          style: context.bodyMedium
-                              .size(30)
-                              .w700
-                              .colorExt(ColorManager.black),
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
-            8.hBox,
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }

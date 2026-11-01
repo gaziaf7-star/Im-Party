@@ -100,8 +100,10 @@ class FamilyMember extends StatelessWidget {
                           child: TextWidget(
                             type,
                             style: context.bodySmall.copyWith(
-                              color: ColorManager.textPrimary,
+                              // White on the primary-coloured Owner/Admin chip.
+                              color: Colors.white,
                               fontSize: 10,
+                              fontWeight: FontWeight.w600,
                             ),
                           ),
                         ),

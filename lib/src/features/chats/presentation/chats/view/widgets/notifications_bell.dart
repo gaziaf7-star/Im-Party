@@ -146,9 +146,8 @@ class NotificationsBell extends StatelessWidget {
   Widget build(BuildContext context) {
     return IconButton(
       onPressed: () => _open(context),
-      // Fixed white — sits on the Chats page's Home-style gradient band now.
-      icon: Icon(Icons.notifications_none,
-          color: ColorManager.homeHeaderTextColor),
+      // Black app-bar icons on the Chats page.
+      icon: const Icon(Icons.notifications_none, color: Colors.black),
       tooltip: StringManager.notification.tr(),
     );
   }

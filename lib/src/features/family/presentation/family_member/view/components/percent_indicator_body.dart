@@ -14,7 +14,7 @@ part of '../family_member_page.dart';
 //       children: [
 //         TextWidget(
 //           '${(data?.members?.length ?? 0)}',
-//           style: context.bodySmall.colorExt(ColorManager.textPrimary),
+//           style: context.bodySmall.colorExt(ColorManager.momentPostTextColor),
 //         ),
 //         LinearPercentIndicator(
 //           barRadius: Radius.circular(10.w),
@@ -26,7 +26,7 @@ part of '../family_member_page.dart';
 //         ),
 //         TextWidget(
 //           '${(data?.maxNumOfMembers ?? 0)}',
-//           style: context.bodySmall.colorExt(ColorManager.textPrimary),
+//           style: context.bodySmall.colorExt(ColorManager.momentPostTextColor),
 //         ),
 //       ],
 //     );

@@ -19,64 +19,69 @@ class CountryWidget extends StatelessWidget {
     this.isShowFlag = true,
     required this.isSelected,
     this.isGlobal = false,
+    this.paletteIndex,
   });
+
+  /// Position in the row; picks this pill's own gradient from [_gradients].
+  /// Null falls back to a stable pick from the label.
+  final int? paletteIndex;
+
+  /// One gradient per pill (cycled), so every tab has its own colours.
+  static const List<List<Color>> _gradients = [
+    [Color(0xFFF8284D), Color(0xFF3A3BF0)],
+    [Color(0xFFFF8A00), Color(0xFFFF2E93)],
+    [Color(0xFF00C27A), Color(0xFF0091FF)],
+    [Color(0xFFB144FF), Color(0xFFFF4FA3)],
+    [Color(0xFF00B8D9), Color(0xFF5B5CFF)],
+    [Color(0xFFFFB300), Color(0xFFFF5722)],
+    [Color(0xFF7C4DFF), Color(0xFF00BFA5)],
+  ];
 
   @override
   Widget build(BuildContext context) {
-    // A colourful gold-edged pill, matching the CP profile's own
-    // Personal/Moment/Gift tab-bar look exactly (same colours/border as
-    // CpTabPill): selected = pink->purple gradient + bold gold ring,
-    // unselected = a filled blue gradient + a lighter gold ring -- not a
-    // plain white/bordered chip. Shows the country's NAME as text, not the
-    // flag photo, on request.
+    // Flat pill, no border or shadow. Selected = this pill's own gradient
+    // with white bold text; unselected = soft grey with grey text.
     final label = isGlobal ? StringManager.all.tr() : (countryEntity?.name ?? '');
-    return Container(
-      height: 34.h,
-      margin: context.paddingSymmetric(horizontal: 4),
-      padding: context.paddingSymmetric(horizontal: 14),
-      alignment: Alignment.center,
-      decoration: BoxDecoration(
-        borderRadius: 12.radius,
-        gradient: LinearGradient(
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-          colors: isSelected
-              ? const [Color(0xFFFF8AC2), Color(0xFFAC55E7)]
-              : const [Color(0xFF4FC3FF), Color(0xFF3556E8)],
+    final gradient = _gradients[
+        (paletteIndex ?? label.hashCode).abs() % _gradients.length];
+    final fg = isSelected ? Colors.white : const Color(0xFF8E8E93);
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 220),
+        curve: Curves.easeOut,
+        height: 34.h,
+        margin: context.paddingSymmetric(horizontal: 4),
+        padding: context.paddingSymmetric(horizontal: 16),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          borderRadius: 12.radius,
+          color: isSelected ? null : const Color(0xFFF1F1F3),
+          gradient: isSelected
+              ? LinearGradient(
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                  colors: gradient,
+                )
+              : null,
         ),
-        border: Border.all(
-          color: isSelected
-              ? const Color(0xE6FFD98A)
-              : const Color(0x99FFD98A),
-          width: isSelected ? 2.0 : 1.5,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: isSelected
-                ? const Color(0x66FF5EA8)
-                : const Color(0x66000000),
-            blurRadius: isSelected ? 10 : 5,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: InkWell(
-        onTap: onTap,
-        borderRadius: 12.radius,
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
             if (isGlobal) ...[
-              Icon(Icons.public_rounded, size: 14.h, color: Colors.white),
+              Icon(Icons.public_rounded, size: 14.h, color: fg),
               4.wBox,
             ],
             TextWidget(
               label,
               maxLines: 1,
               style: context.bodySmall
-                  .copyWith(fontSize: 12)
-                  .colorExt(Colors.white)
-                  .copyWith(fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600),
+                  .copyWith(fontSize: 13)
+                  .colorExt(fg)
+                  .copyWith(
+                    fontWeight: isSelected ? FontWeight.w800 : FontWeight.w600,
+                  ),
             ),
           ],
         ),

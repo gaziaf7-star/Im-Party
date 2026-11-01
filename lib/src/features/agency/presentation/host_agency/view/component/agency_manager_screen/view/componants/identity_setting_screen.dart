@@ -33,6 +33,7 @@ class _IdentitySettingState extends State<IdentitySetting> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: BlocListener<MakeUserAdminBloc, MakeUserAdminState>(
           bloc: _makeUserAdminBloc,

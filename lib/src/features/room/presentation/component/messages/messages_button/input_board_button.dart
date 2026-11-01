@@ -1,4 +1,5 @@
 import 'package:general/src/core/index.dart';
+import 'package:general/src/features/room/presentation/room_controls/room_controls.dart';
 import 'package:general/src/features/room/presentation/component/messages/messages_button/input_board.dart';
 
 /// @nodoc
@@ -26,6 +27,14 @@ class _AudioRoomInRoomMessageInputBoardButtonState
   Widget build(BuildContext context) {
     return InkWell(
       onTap: () {
+        if (!RoomControls.instance.canIChat) {
+          Methods.showToast(
+            context,
+            message: 'Comments are locked. The host has to allow you to comment.',
+            isError: true,
+          );
+          return;
+        }
         final key = DateTime.now().millisecondsSinceEpoch;
         widget.onSheetPopUp?.call(key);
 

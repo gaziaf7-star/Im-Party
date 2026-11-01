@@ -12,21 +12,27 @@ class OldTopTabBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // White titles; the selected one is larger with a short white underline.
     return SizedBox(
-      height: 32.h,
+      height: 40.h,
       child: TabBar(
+        isScrollable: true,
+        tabAlignment: TabAlignment.center,
         indicatorSize: TabBarIndicatorSize.label,
         controller: controller,
         dividerHeight: 0,
         dividerColor: ColorManager.transparent,
         overlayColor: WidgetStateColor.transparent,
-        indicatorColor: Colors.white,
-        indicatorPadding: context.paddingSymmetric(horizontal: 0),
-        labelStyle: context.bodyLarge.bold.colorExt(ColorManager.white),
-        unselectedLabelStyle: context.bodyLarge.w600.colorExt(
-          ColorManager.whiteColor.withValues(alpha: 0.6),
+        indicator: UnderlineTabIndicator(
+          borderSide: const BorderSide(color: Colors.white, width: 3),
+          borderRadius: BorderRadius.circular(3),
+          insets: EdgeInsets.symmetric(horizontal: 14.w),
         ),
-        labelPadding: context.paddingSymmetric(horizontal: 7),
+        labelColor: Colors.white,
+        unselectedLabelColor: Colors.white.withValues(alpha: 0.65),
+        labelStyle: context.bodyLarge.size(17).w600,
+        unselectedLabelStyle: context.bodyLarge.size(15).w500,
+        labelPadding: context.paddingSymmetric(horizontal: 10),
         tabs: [
           Text(StringManager.room.tr()),
           Text(StringManager.wealth.tr()),

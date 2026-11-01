@@ -21,6 +21,7 @@ class _JoinRequestsScreenState extends State<JoinRequestsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         top: true,
         bottom: false,
@@ -63,14 +64,16 @@ class _JoinRequestsScreenState extends State<JoinRequestsScreen> {
                         controller: di<AgencyRequestsBloc>()
                             .state
                             .applicationScrollController,
-                        padding: context.paddingZero(),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 12.w, vertical: 8.h),
                         physics: const AlwaysScrollableScrollPhysics(),
                         itemBuilder: (BuildContext context, int index) =>
                             UserRowApplication(
-                                userDataModel: state.requestsList![index]),
+                                    userDataModel: state.requestsList![index])
+                                .agencyEntrance(index),
                         itemCount: state.requestsList?.length ?? 0,
                         separatorBuilder: (BuildContext context, int index) {
-                          return 10.hBox;
+                          return 4.hBox;
                         },
                       ),
                     ),

@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 import 'package:general/src/features/auth/domain/entities/user_entity.dart';
 import 'package:general/src/features/cp/cp.dart';
 import 'package:general/src/core/index.dart';
+import 'package:general/src/features/cp/presentation/intimate_space/intimate_space_page.dart';
+import 'package:general/src/features/theme2_app/user_profile/presentation/widgets/cp_add_slot.dart';
 
 /// Theme2 version of CpBlockView - uses CP background + corner images
 class Theme2VisitorCpCard extends StatefulWidget {
@@ -290,11 +292,14 @@ class _Theme2VisitorCpCardState extends State<Theme2VisitorCpCard> {
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),
                   padding: context.paddingZero(),
-                  itemCount: widget.myProfile
-                      ? state.data?.seats != 9
-                      ? (state.data?.seats ?? 0) + 1
-                      : state.data?.seats!
-                      : state.data?.seats!,
+                  // "Expand CP" slot hidden on request -- only the CP seats
+                  // themselves. Previous count, kept for reference:
+                  // itemCount: widget.myProfile
+                  //     ? state.data?.seats != 9
+                  //     ? (state.data?.seats ?? 0) + 1
+                  //     : state.data?.seats!
+                  //     : state.data?.seats!,
+                  itemCount: state.data?.seats ?? 0,
                   gridDelegate:
                   const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 3,
@@ -311,8 +316,9 @@ class _Theme2VisitorCpCardState extends State<Theme2VisitorCpCard> {
                       }
                       return _buildEmptyCpSlot(context, state, index);
                     }
-                    // Buy more seats button
-                    return _buildBuySeatButton(context, state);
+                    // Buy more seats ("Expand CP") button -- hidden:
+                    // return _buildBuySeatButton(context, state);
+                    return const SizedBox.shrink();
                   },
                 ),
               ),
@@ -439,44 +445,21 @@ class _Theme2VisitorCpCardState extends State<Theme2VisitorCpCard> {
       BuildContext context, CpProfileStates state, int index) {
     if (widget.myProfile) {
       return InkWell(
-        onTap: () => Navigator.pushNamed(context, Routes.cpStorePage),
-        child: CustomPaint(
-          // Professional "Add" slot: soft gradient card + a dashed border
-          // drawn with a CustomPainter, instead of the old flat dark tile.
-          painter: _DashedBorderPainter(
-            color: ColorManager.white.withValues(alpha: 0.55),
-            radius: 12.r,
-          ),
-          child: Container(
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFF8E6BFF), Color(0xFFC084FC)],
-              ),
-              borderRadius: BorderRadius.circular(12.r),
+        onTap: () {
+          final u = widget.userEntity;
+          IntimateSpacePage.open(
+            context,
+            IntimateSpaceArgs(
+              userId: u.id?.toString() ?? '',
+              name: u.name ?? '',
+              image: u.profile?.image ?? '',
+              uuid: u.uuid ?? u.id?.toString() ?? '',
+              isMine: widget.myProfile,
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Image.asset(
-                  AssetsManager.profileRelationshipAddCpIc,
-                  height: 40.h,
-                  width: 40.w,
-                ),
-                4.hBox,
-                Text(
-                  StringManager.add.tr(),
-                  style: TextStyle(
-                    color: ColorManager.white,
-                    fontSize: 10.sp,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+          );
+        },
+        // Glossy pink glass tile in a gold frame with heart gems.
+        child: CpAddSlot(label: StringManager.add.tr()),
       );
     }
     return Container(
@@ -494,6 +477,8 @@ class _Theme2VisitorCpCardState extends State<Theme2VisitorCpCard> {
     );
   }
 
+  // Unused while the "Expand CP" slot is hidden (see itemCount above).
+  // ignore: unused_element
   Widget _buildBuySeatButton(BuildContext context, CpProfileStates state) {
     return InkWell(
       onTap: () {
@@ -529,65 +514,5 @@ class _Theme2VisitorCpCardState extends State<Theme2VisitorCpCard> {
         ),
       ),
     );
-  }
-}
-
-/// Draws a soft dashed rounded-rect border over its child — used to give
-/// the CP "Add" slot a more professional, intentional look on top of its
-/// gradient background.
-class _DashedBorderPainter extends CustomPainter {
-  final Color color;
-  final double radius;
-  final double dashWidth;
-  final double dashGap;
-  final double strokeWidth;
-
-  _DashedBorderPainter({
-    required this.color,
-    required this.radius,
-    this.dashWidth = 5,
-    this.dashGap = 4,
-    this.strokeWidth = 1.4,
-  });
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeWidth;
-
-    final rrect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(
-        strokeWidth / 2,
-        strokeWidth / 2,
-        size.width - strokeWidth,
-        size.height - strokeWidth,
-      ),
-      Radius.circular(radius),
-    );
-
-    final path = Path()..addRRect(rrect);
-    final metrics = path.computeMetrics();
-    for (final metric in metrics) {
-      double distance = 0;
-      while (distance < metric.length) {
-        final next = distance + dashWidth;
-        canvas.drawPath(
-          metric.extractPath(distance, next.clamp(0, metric.length)),
-          paint,
-        );
-        distance = next + dashGap;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(covariant _DashedBorderPainter oldDelegate) {
-    return oldDelegate.color != color ||
-        oldDelegate.radius != radius ||
-        oldDelegate.dashWidth != dashWidth ||
-        oldDelegate.dashGap != dashGap ||
-        oldDelegate.strokeWidth != strokeWidth;
   }
 }

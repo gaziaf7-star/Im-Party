@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:general/src/core/index.dart';
+import 'package:general/src/features/room/presentation/component/widgets/relation_link_overlay_widget.dart';
 import 'package:general/src/features/auth/domain/entities/my_data_entity.dart';
 import 'package:general/src/features/room/presentation/charisma/bloc/charisma_bloc.dart';
 import 'package:general/src/features/room/presentation/manager/room_mode/room_mode_cubit.dart';
@@ -197,6 +198,10 @@ class EnterRoomModel extends Equatable {
     // per-seat charisma_total + owner_charisma_total shipped in the enter-room
     // payload, so a (re)joiner shows correct badges immediately with zero resync.
     _seedCharismaFromEnterRoom(json, charismaVisible == true);
+    if (json.containsKey('relation_links')) {
+      RoomData.instance.relationLinks.value =
+          RelationLink.parseList(json['relation_links']);
+    }
 
     EnterRoomModel createInstance() {
       return EnterRoomModel(
@@ -423,7 +428,9 @@ Map<String, List<String>?>? _parseAdminPermissions(dynamic raw) {
 /// dispatch is deferred so it never re-enters CharismaBloc while it (or the room)
 /// is still being built during entry.
 void _seedCharismaFromEnterRoom(Map<String, dynamic> json, bool charismaVisible) {
-  scheduleMicrotask(() {
+  final roomId = '${json['id'] ?? ''}';
+  if (roomId.isNotEmpty) CharismaCache.roomId = roomId;
+  scheduleMicrotask(() async {
     final bloc = di<CharismaBloc>();
     if (bloc.isClosed) return;
 
@@ -453,6 +460,34 @@ void _seedCharismaFromEnterRoom(Map<String, dynamic> json, bool charismaVisible)
       }
     }
 
+    // `microphones` is empty with the UTD seat system, so a re-joiner saw 0
+    // for everyone. The backend can send every user's total here instead:
+    // `charisma_totals` as {"user_id": total} or [{"user_id": .., "total": ..}].
+    void addTotal(Object? id, Object? value) {
+      final userId = int.tryParse('$id') ?? 0;
+      final total =
+          value is num ? value.toInt() : int.tryParse('${value ?? ''}') ?? 0;
+      if (userId <= 0 || total <= 0) return;
+      if (updates.any((e) => e.userId == userId)) return;
+      updates.add(CharismaModel(
+        userId: userId,
+        total: Methods().convertToAbbreviatedString(total),
+        position: 0,
+        totalValue: total,
+      ));
+    }
+
+    final totals = json['charisma_totals'];
+    if (totals is Map) {
+      totals.forEach(addTotal);
+    } else if (totals is List) {
+      for (final e in totals) {
+        if (e is Map) {
+          addTotal(e['user_id'] ?? e['id'], e['total'] ?? e['charisma_total']);
+        }
+      }
+    }
+
     final ownerId = int.tryParse('${json['owner_id']}') ?? 0;
     final ownerTotal = (json['owner_charisma_total'] is num)
         ? (json['owner_charisma_total'] as num).toInt()
@@ -467,6 +502,28 @@ void _seedCharismaFromEnterRoom(Map<String, dynamic> json, bool charismaVisible)
         totalValue: ownerTotal,
       ));
     }
+
+    // Everyone else: the totals this phone saw last time in this room. If
+    // the server's owner total dropped below the saved one, the room was
+    // reset while we were away -- the saved totals are stale.
+    if (roomId.isNotEmpty) {
+      final saved = await CharismaCache.load(roomId);
+      final savedOwner = saved[ownerId] ?? 0;
+      if (ownerId > 0 && savedOwner > ownerTotal) {
+        await CharismaCache.clear(roomId);
+      } else {
+        saved.forEach((userId, total) {
+          if (total <= 0 || updates.any((e) => e.userId == userId)) return;
+          updates.add(CharismaModel(
+            userId: userId,
+            total: Methods().convertToAbbreviatedString(total),
+            position: 0,
+            totalValue: total,
+          ));
+        });
+      }
+    }
+    if (bloc.isClosed) return;
 
     if (updates.isNotEmpty) {
       bloc.add(UpdateCharismaEvent(data: updates));

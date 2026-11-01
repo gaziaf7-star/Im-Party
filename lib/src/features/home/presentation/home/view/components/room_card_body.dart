@@ -45,6 +45,12 @@ class RoomCardBody extends StatelessWidget {
     }
   }
 
+  /// Animated TOP1/2/3 frame for this card, or null (not ranked 1-3).
+  String? get _topFrame =>
+      isShowSVGA && rank != null && rank! >= 1 && rank! <= 3
+          ? AssetsManager.roomCardTopFrames[rank! - 1]
+          : null;
+
   static const _gradientDecoration = BoxDecoration(
     gradient: LinearGradient(
       colors: [Color(0x66000000), Colors.transparent],
@@ -189,7 +195,8 @@ class RoomCardBody extends StatelessWidget {
             ),
           ),
         ),
-        if (isShowSVGA)
+        // Top 1/2/3 get their own animated frame; other cards none.
+        if (_topFrame != null)
           Positioned(
             top: -15.h,
             right: -10.w,
@@ -200,13 +207,14 @@ class RoomCardBody extends StatelessWidget {
                 height: ScreenUtil().screenWidth,
                 width: ScreenUtil().screenWidth,
                 child: ShowSVGA(
-                  svgaAssetPath: AssetsManager.grid1,
+                  svgaAssetPath: _topFrame,
                   fit: BoxFit.fill,
                 ),
               ),
             ),
           ),
-        if (_rankFrame != null)
+        // The small TOP badge is drawn into the new frames themselves.
+        if (_rankFrame != null && _topFrame == null)
           PositionedDirectional(
             top: 4.h,
             start: 4.w,

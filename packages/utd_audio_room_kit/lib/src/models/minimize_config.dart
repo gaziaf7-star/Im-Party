@@ -19,6 +19,18 @@ class UTDMinimizeConfig {
   final Color? soundWaveColor;
   final double borderRadius;
 
+  /// When set, the overlay is drawn with a coloured ring of [ringWidth] around
+  /// it (the "bubble" look).
+  final Color? ringColor;
+  final double ringWidth;
+
+  /// Draws a corner tab in the ring colour (top-right) with a close (x) mark;
+  /// tapping it closes the room. Only used together with [ringColor].
+  final bool showCloseCorner;
+
+  /// Opacity of the dark tint laid over the room image (0 = none).
+  final double imageDimOpacity;
+
   /// Enables Android OS-level Picture-in-Picture, *in addition to* the in-app
   /// minimize overlay above. When `true` and running on Android 12+ (API 31+),
   /// the app auto-enters a system PiP window when backgrounded (Home gesture)
@@ -44,6 +56,10 @@ class UTDMinimizeConfig {
     this.showLeaveButton = true,
     this.soundWaveColor,
     this.borderRadius = 16,
+    this.ringColor,
+    this.ringWidth = 3,
+    this.showCloseCorner = false,
+    this.imageDimOpacity = 0.35,
     this.enableOSPip = false,
     this.pipAspectWidth = 1,
     this.pipAspectHeight = 1,

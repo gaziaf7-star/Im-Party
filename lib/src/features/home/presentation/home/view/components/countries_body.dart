@@ -21,6 +21,32 @@ class CountriesBody extends StatefulWidget {
 }
 
 class CountriesBodyState extends State<CountriesBody> {
+  /// The user's own country is pre-selected once per app launch; after that
+  /// the row keeps whatever the user picks (including All).
+  static bool _didAutoSelectMyCountry = false;
+
+  void _selectCountry(CountryEntity country) {
+    di<CountriesBloc>().add(
+      SelectedCountryEvent(
+        countryId: '${country.id}',
+        countryEntity: country,
+      ),
+    );
+    di<HomeBloc>().add(
+      FilterPopularRoomsEvent(
+        isLoading: false,
+        isFirstPage: true,
+        countryId: country.id,
+      ),
+    );
+    di<GetCarouselBloc>().add(
+      GetCountryCarouselEvent(
+        isLoading: false,
+        countryId: '${country.id}',
+      ),
+    );
+  }
+
   @override
   void initState() {
     super.initState();
@@ -33,7 +59,12 @@ class CountriesBodyState extends State<CountriesBody> {
   @override
   Widget build(BuildContext context) {
     final bloc = di<CountriesBloc>();
-    return BlocBuilder<CountriesBloc, CountriesState>(
+    // Rebuild once the user's profile loads too: "my country" comes from it,
+    // and it often arrives after the country list.
+    return BlocBuilder<FetchUserDataBloc, FetchUserDataState>(
+      bloc: di<FetchUserDataBloc>(),
+      buildWhen: (previous, current) => previous.reqState != current.reqState,
+      builder: (context, _) => BlocBuilder<CountriesBloc, CountriesState>(
       bloc: bloc,
       buildWhen: (previous, current) =>
       previous.homeCountries != current.homeCountries ||
@@ -42,6 +73,54 @@ class CountriesBodyState extends State<CountriesBody> {
           previous.countryEntity != current.countryEntity ||
           previous.countryId != current.countryId,
       builder: (context, state) {
+        // Row order: the user's own (registration) country, then All, then
+        // every other country. Done here rather than in the bloc so it follows
+        // MyDataModel, which can load after the country list does.
+        final profileCountry = MyDataModel.getInstance().country;
+        final myCountryId = profileCountry?.id;
+        CountryEntity? myCountry;
+        final others = <CountryEntity>[];
+        for (final c in state.homeCountries) {
+          if (myCountry == null && myCountryId != null && c.id == myCountryId) {
+            myCountry = c;
+          } else {
+            others.add(c);
+          }
+        }
+        // The server list can leave the user's country out (e.g. no rooms
+        // yet); it still goes first, built from the profile.
+        if (myCountry == null && profileCountry != null && myCountryId != null) {
+          myCountry = CountryEntity(
+            id: profileCountry.id,
+            name: (profileCountry.nameEn?.isNotEmpty ?? false)
+                ? profileCountry.nameEn
+                : profileCountry.name,
+            nameEn: profileCountry.nameEn,
+            photo: profileCountry.photo,
+            lang: profileCountry.lang,
+            phoneCode: profileCountry.phoneCode,
+            iso: profileCountry.iso,
+          );
+        }
+        // All sits right after the user's country, or first when they have none.
+        final globalIndex = myCountry == null ? 0 : 1;
+
+        // First open: select the user's own country so its rooms show first.
+        if (!_didAutoSelectMyCountry &&
+            myCountry != null &&
+            state.homeCountriesRequestState.isLoaded) {
+          _didAutoSelectMyCountry = true;
+          if (state.countryEntity == null) {
+            final initial = myCountry;
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              if (mounted) _selectCountry(initial);
+            });
+          }
+        }
+        final rowCountries = <CountryEntity>[
+          if (myCountry != null) myCountry,
+          ...others,
+        ];
         return Padding(
           padding: context.paddingSymmetric(horizontal: 10),
           child: HandlingDataWidget(
@@ -74,11 +153,12 @@ class CountriesBodyState extends State<CountriesBody> {
                     // +1 for the Global entry that leads the row. It is not a
                     // country and must not come from the backend list, because
                     // "no filter" has no country_id to send.
-                    itemCount: state.homeCountries.length + 1,
+                    itemCount: rowCountries.length + 1,
                     itemBuilder: (context, index) {
-                      if (index == 0) {
+                      if (index == globalIndex) {
                         return CountryWidget(
                           isGlobal: true,
+                          paletteIndex: 0,
                           // Selected whenever no country filter is applied.
                           isSelected: state.countryId == '',
                           onTap: () {
@@ -99,34 +179,15 @@ class CountriesBodyState extends State<CountriesBody> {
                           },
                         );
                       }
-                      final country = state.homeCountries[index - 1];
+                      final country =
+                          rowCountries[index < globalIndex ? index : index - 1];
                       return CountryWidget(
                         countryEntity: country,
-                        onTap: () {
-
-                          // Tapping a country applies an in-place filter
-                          // (rooms + banners) on the current page -> no dialog,
-                          // no webview.
-                          di<CountriesBloc>().add(
-                            SelectedCountryEvent(
-                              countryId: '${country.id}',
-                              countryEntity: country,
-                            ),
-                          );
-                          di<HomeBloc>().add(
-                            FilterPopularRoomsEvent(
-                              isLoading: false,
-                              isFirstPage: true,
-                              countryId: country.id,
-                            ),
-                          );
-                          di<GetCarouselBloc>().add(
-                            GetCountryCarouselEvent(
-                              isLoading: false,
-                              countryId: '${country.id}',
-                            ),
-                          );
-                        },
+                        paletteIndex: index,
+                        // Tapping a country applies an in-place filter
+                        // (rooms + banners) on the current page -> no dialog,
+                        // no webview.
+                        onTap: () => _selectCountry(country),
                         isSelected: state.countryEntity?.id == country.id &&
                             state.countryId != '',
                       );
@@ -204,6 +265,7 @@ class CountriesBodyState extends State<CountriesBody> {
           ),
         );
       },
+      ),
     );
   }
 }

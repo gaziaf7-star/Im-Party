@@ -6,8 +6,9 @@ class CreateFamilyEntryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar:  AppBarWidget(
-        backgroundColor: ColorManager.scaffoldBg,
+        backgroundColor: Colors.white,
         title: StringManager.family.tr(),
       ),
       body: Container(

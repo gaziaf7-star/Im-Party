@@ -7,7 +7,7 @@ import 'package:general/src/features/auth/domain/entities/user_entity.dart';
 import 'package:general/src/features/cp/presentation/cp_store/bloc/cp_profile_bloc/cp_profile_bloc.dart';
 import 'package:general/src/features/profile/presentation/profile/view/page/user_profile/bloc/get_user_support/get_user_support_bloc.dart';
 import 'package:general/src/features/profile/presentation/profile/view/page/user_profile/bloc/get_user_support/get_user_support_state.dart';
-import 'package:general/src/features/theme2_app/user_profile/presentation/widgets/theme2_visitor_cp_card.dart';
+import 'package:general/src/features/theme2_app/user_profile/presentation/widgets/theme2_relation_cards.dart';
 
 /// Family + CP + Friend + Agency + Supporters section, in the reference
 /// image's order (Family, then CP, then Friend). CP is back exactly as it
@@ -136,19 +136,15 @@ class Theme2VisitorRelationTab extends StatelessWidget {
           _EmptyRow(label: StringManager.noFamilys.tr()),
         16.hBox,
 
-        // CP section — exactly as it was before.
+        // Relation section.
         _SectionTitle(
-          title: StringManager.cP.tr(),
+          title: 'Relation',
           color: ColorManager.primary,
         ),
         8.hBox,
-        Theme2VisitorCpCard(
-          // Matches exactly how this was wired before this section was
-          // briefly removed and restored.
-          myProfile: Methods.isMe(user?.id.toString() ?? ''),
-          userEntity: user ?? const UserEntity(),
-          cpProfileBloc: cpProfileBloc,
-        ),
+        // CP, Best Friend, Sister and Brother cards (im_Chat artwork);
+        // tapping one opens its Intimate Space tab.
+        Theme2RelationCards(user: user, cpProfileBloc: cpProfileBloc),
         16.hBox,
 
         // Friend section — count only; the drill-down list (Routes.

@@ -72,14 +72,23 @@ class MineHeader extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  GradientName(child: TextWidget(
-                    '${user.name}',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: context.bodyLarge.w700
-                        .size(17)
-                        .colorExt(ColorManager.momentPostTextColor),
-                  )),
+                  // A deep-orange light sweeps across the name every couple
+                  // of seconds; the base stays dark so it always reads
+                  // clearly. Small top gap so the name sits a little lower.
+                  6.hBox,
+                  Shimmer.fromColors(
+                    baseColor: ColorManager.momentPostTextColor,
+                    highlightColor: const Color(0xFFFF6A00),
+                    period: const Duration(milliseconds: 2400),
+                    child: GradientName(child: TextWidget(
+                      '${user.name}',
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: context.bodyLarge.w800
+                          .size(22)
+                          .colorExt(ColorManager.momentPostTextColor),
+                    )),
+                  ),
                   4.hBox,
                   _IdRow(user: user),
                   6.hBox,
@@ -120,7 +129,8 @@ class _MineBadgesRow extends StatelessWidget {
         if (ownedBadges.isEmpty && !hasVip) return const SizedBox();
 
         return Padding(
-          padding: EdgeInsets.only(top: 6.h),
+          // Tight under the level pills (was 6.h).
+          padding: EdgeInsets.zero,
           // One line, scrollable -- never wraps to a second row (on request).
           child: SingleChildScrollView(
             scrollDirection: Axis.horizontal,
@@ -140,13 +150,13 @@ class _MineBadgesRow extends StatelessWidget {
                       ? CacheSvgaWidget(
                           url: EndPoints.getImage(badge.image),
                           boxFit: BoxFit.contain,
-                          height: 42.h,
-                          width: 84.w,
+                          height: 36.h,
+                          width: 76.w,
                         )
                       : ImageViewWidget(
                           url: EndPoints.getImage(badge.image),
-                          height: 42.h,
-                          width: 84.w,
+                          height: 36.h,
+                          width: 76.w,
                           boxFit: BoxFit.contain,
                         ),
                   if (badge != ownedBadges.last) 3.wBox,

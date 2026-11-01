@@ -49,8 +49,11 @@ class _NormalGamesBannerState extends State<NormalGamesBanner>
   }
 
   void loadAnimation() async {
-    final videoItem = await SvgaMovieCache.instance
-        .loadFromAsset(AssetsManager.bannerGameWinSVGA);
+    final videoItem = await SvgaMovieCache.instance.loadFromAsset(
+      AssetsManager.bannerGameWinSVGA,
+    );
+    // The banner can be disposed (room closed) while the asset loads.
+    if (!mounted) return;
     if (videoItem == null) {
       // Asset missing: never leave this entry stuck at the head — it would
       // freeze the whole queue (only the animation teardown advances it).
@@ -64,27 +67,34 @@ class _NormalGamesBannerState extends State<NormalGamesBanner>
       animationController.duration = const Duration(seconds: 2);
     }
 
-    String gameImage = widget.gameImage.isNotEmpty
-        ? await _loadCachedOrRemoteAsset(widget.gameImage)
-        : "";
-    String userImage = widget.userImage.isNotEmpty
-        ? await _loadCachedOrRemoteAsset(widget.userImage)
-        : "";
+    String gameImage =
+        widget.gameImage.isNotEmpty
+            ? await _loadCachedOrRemoteAsset(widget.gameImage)
+            : "";
+    String userImage =
+        widget.userImage.isNotEmpty
+            ? await _loadCachedOrRemoteAsset(widget.userImage)
+            : "";
+
+    if (!mounted) return;
 
     // --- Game Image ---
     if (gameImage.isNotEmpty) {
       try {
         final Uint8List imageBytes = await File(gameImage).readAsBytes();
-        final ui.Image image =
-            await decodeImageFromList(imageBytes.buffer.asUint8List());
+        final ui.Image image = await decodeImageFromList(
+          imageBytes.buffer.asUint8List(),
+        );
         animationController.videoItem?.dynamicItem.setImage(image, "game");
       } catch (e) {
         debugPrint('Error loading cached game image: $e');
       }
     } else if (widget.gameImage.isNotEmpty) {
       try {
-        await animationController.videoItem?.dynamicItem
-            .setImageWithUrl(EndPoints.getImage(widget.gameImage), "game");
+        await animationController.videoItem?.dynamicItem.setImageWithUrl(
+          EndPoints.getImage(widget.gameImage),
+          "game",
+        );
       } catch (e) {
         debugPrint('Error loading remote game image: $e');
       }
@@ -94,21 +104,28 @@ class _NormalGamesBannerState extends State<NormalGamesBanner>
     if (userImage.isNotEmpty) {
       try {
         final Uint8List imageBytes = await File(userImage).readAsBytes();
-        final ui.Image image =
-            await decodeImageFromList(imageBytes.buffer.asUint8List());
-        animationController.videoItem?.dynamicItem
-            .setImage(image, "sendheadimg");
+        final ui.Image image = await decodeImageFromList(
+          imageBytes.buffer.asUint8List(),
+        );
+        animationController.videoItem?.dynamicItem.setImage(
+          image,
+          "sendheadimg",
+        );
       } catch (e) {
         debugPrint('Error loading cached user image: $e');
       }
     } else if (widget.userImage.isNotEmpty) {
       try {
         await animationController.videoItem?.dynamicItem.setImageWithUrl(
-            EndPoints.getImage(widget.userImage), "sendheadimg");
+          EndPoints.getImage(widget.userImage),
+          "sendheadimg",
+        );
       } catch (e) {
         debugPrint('Error loading remote user image: $e');
       }
     }
+
+    if (!mounted) return;
 
     // --- Coins Text ---
     animationController.videoItem?.dynamicItem.setText(
@@ -117,9 +134,10 @@ class _NormalGamesBannerState extends State<NormalGamesBanner>
           children: [
             TextSpan(
               text: widget.coins,
-              style: context.bodyMedium.size(20).bold.colorExt(
-                    ColorManager.whiteColor,
-                  ),
+              style: context.bodyMedium
+                  .size(20)
+                  .bold
+                  .colorExt(ColorManager.whiteColor),
             ),
           ],
         ),
@@ -134,9 +152,10 @@ class _NormalGamesBannerState extends State<NormalGamesBanner>
           children: [
             TextSpan(
               text: widget.username,
-              style: context.bodyMedium.size(18).bold.colorExt(
-                    ColorManager.whiteColor,
-                  ),
+              style: context.bodyMedium
+                  .size(18)
+                  .bold
+                  .colorExt(ColorManager.whiteColor),
             ),
           ],
         ),
@@ -146,19 +165,17 @@ class _NormalGamesBannerState extends State<NormalGamesBanner>
 
     // --- Start Animation ---
     try {
-      animationController.forward().whenComplete(
-        () {
-          animationController.clear();
-          di<ShowBannersBloc>().add(const ShowBannerInAppEvent(bannerData: {}));
-          if (GiftController().userBannerData.isNotEmpty) {
-            GiftController().userBannerData.removeAt(0);
-          }
-          Future.delayed(
-            const Duration(milliseconds: 300),
-            () => GiftController().advanceQueue(),
-          );
-        },
-      );
+      animationController.forward().whenComplete(() {
+        animationController.clear();
+        di<ShowBannersBloc>().add(const ShowBannerInAppEvent(bannerData: {}));
+        if (GiftController().userBannerData.isNotEmpty) {
+          GiftController().userBannerData.removeAt(0);
+        }
+        Future.delayed(
+          const Duration(milliseconds: 300),
+          () => GiftController().advanceQueue(),
+        );
+      });
     } catch (_) {
       _skipAndAdvanceQueue();
     }

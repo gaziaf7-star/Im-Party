@@ -1,12 +1,13 @@
 import 'package:general/src/core/index.dart';
 import 'package:general/src/core/widgets/level_container.dart';
 import 'package:general/src/features/family/family.dart';
-import 'package:general/src/features/family/presentation/family_rank/view/components/top_user_item.dart';
 import 'package:general/src/features/family/presentation/family_rank/view/widgets/family_card.dart';
 import '../../../../../core/widgets/md_indicator.dart';
 import '../../../../../core/widgets/vip_container.dart';
 import '../../../../games/domain/entities/user_top_entity.dart';
 import '../bloc/get_all_family/get_all_family_bloc.dart';
+import 'package:general/src/features/games/presentation/ranking/old_ranking/rank_theme.dart';
+import 'package:general/src/core/widgets/country_icon.dart';
 
 part 'components/family_rank_body.dart';
 part 'components/family_rank_tab_bar_view.dart';
@@ -30,12 +31,10 @@ class FamilyRankPageState extends State<FamilyRankPage>
     with TickerProviderStateMixin {
   final GetFamilyRankingBloc _getFamilyRankingBloc = di<GetFamilyRankingBloc>();
   late TabController controller;
-  late TabController mainController;
 
   @override
   void initState() {
     controller = TabController(length: 3, vsync: this);
-    mainController = TabController(length: 2, vsync: this);
     di<GetAllFamilyBloc>().add(const GetFamilyEvent());
     if (!_getFamilyRankingBloc.state.dailyRequestState.isLoaded &&
         controller.index == 0) {
@@ -70,23 +69,27 @@ class FamilyRankPageState extends State<FamilyRankPage>
 
   @override
   Widget build(BuildContext context) {
-    final normalPage = Scaffold(
+    const palette = RankPalette.family;
+    final normalPage = RankPaletteScope(
+      palette: palette,
+      child: Scaffold(
+      backgroundColor: palette.bgTop,
       body: Stack(
         children: [
-          Image.asset(
-            AssetsManager.rankBackground,
-            fit: BoxFit.fill,
+          Container(
             height: ScreenUtil().screenHeight,
             width: ScreenUtil().screenWidth,
+            decoration: BoxDecoration(gradient: palette.background),
           ),
           SafeArea(
             child: Column(
               children: [
                 AppBarWidget(
                   title: StringManager.family.tr(),
+                  // White header text, same as the other ranking pages.
                   titleStyle: context.titleLarge.bold
                       .size(18)
-                      .colorExt(ColorManager.onDark),
+                      .colorExt(Colors.white),
                   iconLasted: Padding(
                     padding: context.paddingOnly(end: 10),
                     child: BlocBuilder<FetchUserDataBloc, FetchUserDataState>(
@@ -118,12 +121,10 @@ class FamilyRankPageState extends State<FamilyRankPage>
                   iconColor: ColorManager.white,
                   backgroundColor: ColorManager.transparent,
                 ),
-                RankTabBar(controller: mainController),
+                // Ranking only: the "Ranking | Families" switch and the
+                // Families list are hidden (owner request).
                 Expanded(
-                  child: TabBarView(
-                    controller: mainController,
-                    children: [
-                      Column(children: [
+                  child: Column(children: [
                         15.hBox,
                         _FamilyTabBar(controller: controller),
                         10.hBox,
@@ -173,15 +174,13 @@ class FamilyRankPageState extends State<FamilyRankPage>
                           ),
                         ),
                       ]),
-                      const FamilesTabBarView(),
-                    ],
-                  ),
                 ),
               ],
             ),
           ),
         ],
       ),
+    ),
     );
 
     return normalPage;

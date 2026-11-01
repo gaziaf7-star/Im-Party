@@ -1,5 +1,9 @@
 import 'dart:async';
+import 'package:general/src/features/room/presentation/component/widgets/relation_link_overlay_widget.dart';
+import 'package:general/src/features/room/presentation/room_controls/room_controls.dart';
+import 'package:general/src/features/room/presentation/voice_fx/voice_fx.dart';
 import 'package:general/src/core/index.dart';
+import 'package:general/src/features/room/presentation/component/buttons/noise_button.dart';
 import 'package:general/src/features/carom/carom_room_controller.dart';
 import 'package:general/src/features/ludo/ludo_room_controller.dart';
 import 'package:general/src/core/services/join_timeline.dart';
@@ -135,8 +139,15 @@ class RoomData {
       _utdControllerNotifier;
 
   UTDRoomController? get utdController => _utdControllerNotifier.value;
-  set utdController(UTDRoomController? value) =>
-      _utdControllerNotifier.value = value;
+  set utdController(UTDRoomController? value) {
+    // Load the user's saved Noise choice before the mic gets captured.
+    if (value != null) NoiseReductionPrefs.load();
+    // Re-apply the saved Mixer (voice changer / EQ / effect) to the mic.
+    if (value != null) VoiceFx.applySaved();
+    // All Mute / Comment Lock follow this room's controller.
+    if (value != null) RoomControls.instance.attach(value);
+    _utdControllerNotifier.value = value;
+  }
 
   UTDChatController? get chatController => utdController?.chatController;
 
@@ -260,6 +271,11 @@ class RoomData {
     [],
   );
 
+  /// Relation (best friend, …) seat links from the backend `relation_link`
+  /// data-channel frame / enter_room `relation_links`.
+  final ValueNotifier<List<RelationLink>> relationLinks =
+      ValueNotifier<List<RelationLink>>([]);
+
   /// Measured rendered height of [RoomHeader] — the audio-room kit is
   /// closed-source and stacks the seat grid BELOW whatever `headerWidget` is
   /// passed to it (a plain Column, not a Positioned overlay), so the CP heart
@@ -326,6 +342,14 @@ class RoomData {
     if (utdController != null) {
       _rtmSubs.add(
         utdController!.dataStream.listen((data) {
+          // Backend relation frame: {type: relation_link, relation_links: [...]}
+          // has no messageContent, so the RTM processor would drop it.
+          if (data['type'] == 'relation_link') {
+            Methods.printLog('[RelationLink] frame: $data');
+            relationLinks.value =
+                RelationLink.parseList(data['relation_links']);
+            return;
+          }
           final ctx = navKey.currentState?.context;
           if (ctx == null) return;
           // Data arrives already parsed as Map<String, dynamic> from LiveKit data channel.
@@ -487,9 +511,12 @@ class RoomData {
     myCoins.value = '';
     isError.value = false;
     isCommentsClosed.value = false;
+    RoomControls.instance.reset();
     isCharismaVisible.value = false;
     isRoomLocked.value = false;
     showCp.value = [];
+    relationLinks.value = [];
+    RelationLevelEffects.clear();
     isShowInvitation = false;
     runningCinemaMode = false;
     musicControllerUserId = null;
@@ -870,7 +897,31 @@ Future<Map<int, UserInRoomModel>> getUsersByIds(List<int> userIds) async {
 // Room entry success — replaces Zego with UTD Kit
 // ---------------------------------------------------------------------------
 
+/// The engine connection [onEnterRoomSuccess] last ran for. It was reaching
+/// here twice per join, so "X Enter The Room" and the entry animation showed
+/// twice; every real join builds a new controller, so one run per controller.
+Object? _enterHandledFor;
+String? _enterHandledRoom;
+DateTime? _enterHandledAt;
+
 void onEnterRoomSuccess() {
+  final controller = RoomData.instance.utdController;
+  final roomId = RoomData.instance.room.id?.toString() ?? '';
+  final now = DateTime.now();
+  final sameController =
+      controller != null && identical(_enterHandledFor, controller);
+  // Backup for a double join through two controllers: same room, seconds apart.
+  final sameRoomJustNow = roomId.isNotEmpty &&
+      roomId == _enterHandledRoom &&
+      _enterHandledAt != null &&
+      now.difference(_enterHandledAt!) < const Duration(seconds: 15);
+  if (sameController || sameRoomJustNow) {
+    Methods.printLog('🚪 [Entry] onEnterRoomSuccess repeated — skipped');
+    return;
+  }
+  _enterHandledFor = controller;
+  _enterHandledRoom = roomId;
+  _enterHandledAt = now;
   GiftController().normalGiftsToShow.clear();
   // Fetch bad words from server when entering a room
   _fetchBadWords();
@@ -896,6 +947,8 @@ void onEnterRoomSuccess() {
         'type': 'message',
       },
     );
+
+    _autoEnableCharisma();
 
     // Send user entro via data channel
     final entroData = {
@@ -1322,4 +1375,25 @@ void handleRoomModeChangeNew({required String mode_id}) {
   });
 }
 
-
+/// Charisma (the gift-coin count under each seat name) is ON by default:
+/// when the owner enters their room and it is off, switch it on -- unless
+/// the owner turned it off themselves in this room. Never in PK or cinema
+/// mode, where charisma is not allowed.
+Future<void> _autoEnableCharisma() async {
+  final room = RoomData.instance.room;
+  final roomId = room.id?.toString() ?? '';
+  if (roomId.isEmpty) return;
+  if (MyDataModel.getInstance().id != room.ownerId) return;
+  if (RoomData.instance.isCharismaVisible.value) return;
+  if (room.mode == '5' ||
+      RoomData.instance.runningCinemaMode == true ||
+      PkController.isPK.value ||
+      PkController.showPK.value) {
+    return;
+  }
+  if (await CharismaPrefs.isTurnedOff(roomId)) return;
+  if (!di<RoomStateManager>().isInRoom || RoomData.instance.isExitingRoom) {
+    return;
+  }
+  di<CharismaBloc>().add(StartCharismaEvent(roomId: roomId));
+}

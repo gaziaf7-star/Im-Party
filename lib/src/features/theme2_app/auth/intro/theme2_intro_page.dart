@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'package:general/src/core/index.dart';
 import 'package:general/src/features/auth/presentation/auth_platform/bloc/auth_platform_bloc.dart';
-import 'package:general/src/core/widgets/update_dialog.dart';
+import 'package:general/src/core/widgets/app_update_prompt.dart';
 import 'package:general/src/features/auth/presentation/splash/config_app/config_app_bloc.dart';
 
 class Theme2IntroPage extends StatefulWidget {
@@ -21,15 +21,21 @@ class _Theme2IntroPageState extends State<Theme2IntroPage>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        AppUpdatePrompt.showIfNeeded(context, di<ConfigAppBloc>().state);
+      }
+    });
+
 
     _mainCtrl =
-        AnimationController(vsync: this, duration: const Duration(seconds: 3))
-          ..repeat(reverse: true);
+    AnimationController(vsync: this, duration: const Duration(seconds: 3))
+      ..repeat(reverse: true);
 
     if (widget.error != null && (widget.error ?? '').isNotEmpty) {
       Future.delayed(
         const Duration(milliseconds: 800),
-        () {
+            () {
           if (mounted) {
             showDialog(
               context: context,
@@ -111,28 +117,8 @@ class _Theme2IntroPageState extends State<Theme2IntroPage>
 
     return BlocListener<ConfigAppBloc, ConfigAppState>(
       bloc: di<ConfigAppBloc>(),
-      listener: (context, state) {
-        if (state.requestState.isLoaded) {
-          if (state.config?.isLastVersion != true) {
-            showDialog(
-              context: context,
-              barrierDismissible: !(state.config?.isForce ?? false),
-              barrierColor: Colors.black.withValues(alpha: 0.5),
-              builder: (_) => PopScope(
-                canPop: false,
-                onPopInvoked: (_) {},
-                child: ForceUpdateDialog(
-                  description: StringManager.updatDesc.tr(),
-                  isOptionalUpdate: !(state.config?.isForce ?? false),
-                  onConfirm: () {
-                    Methods.openUrl(ConstantsManager.appURL);
-                  },
-                ),
-              ),
-            );
-          }
-        }
-      },
+      listener: (context, state) =>
+          AppUpdatePrompt.showIfNeeded(context, state),
       child: Scaffold(
         body: Container(
           decoration: BoxDecoration(gradient: gradient),
@@ -236,17 +222,17 @@ class _Theme2IntroPageState extends State<Theme2IntroPage>
                               TextWidget(
                                 StringManager.appName,
                                 style: context.bodyMedium.bold.size(28).colorExt(
-                                      ColorManager.onDark,
-                                    ),
+                                  ColorManager.onDark,
+                                ),
                               ),
                               8.hBox,
                               TextWidget(
                                 StringManager.playStreamConnect,
                                 style:
-                                    context.bodyMedium.w400.size(16).colorExt(
-                                          ColorManager.onDark
-                                              .withValues(alpha: 0.8),
-                                        ),
+                                context.bodyMedium.w400.size(16).colorExt(
+                                  ColorManager.onDark
+                                      .withValues(alpha: 0.8),
+                                ),
                               ),
                             ],
                           ),
@@ -257,7 +243,7 @@ class _Theme2IntroPageState extends State<Theme2IntroPage>
                           flex: 2,
                           child: Padding(
                             padding:
-                                EdgeInsets.symmetric(horizontal: 32.w),
+                            EdgeInsets.symmetric(horizontal: 32.w),
                             child: Column(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
@@ -266,14 +252,14 @@ class _Theme2IntroPageState extends State<Theme2IntroPage>
                                     AuthPlatformState>(
                                   bloc: di<AuthPlatformBloc>(),
                                   buildWhen: (prev, curr) =>
-                                      prev.requestStateGoogle !=
+                                  prev.requestStateGoogle !=
                                       curr.requestStateGoogle,
                                   builder: (context, state) {
                                     return _mainAuthButton(
                                       icon: AssetsManager.google_,
                                       label: StringManager.signInWithGoogle,
                                       isLoading:
-                                          state.requestStateGoogle.isLoading,
+                                      state.requestStateGoogle.isLoading,
                                       onTap: () {
                                         di<AuthPlatformBloc>().add(
                                           SignInGoogleEvent(
@@ -304,7 +290,7 @@ class _Theme2IntroPageState extends State<Theme2IntroPage>
                                           AuthPlatformState>(
                                         bloc: di<AuthPlatformBloc>(),
                                         buildWhen: (prev, curr) =>
-                                            prev.requestStateApple !=
+                                        prev.requestStateApple !=
                                             curr.requestStateApple,
                                         builder: (context, state) {
                                           return _circleAuthButton(
@@ -330,7 +316,7 @@ class _Theme2IntroPageState extends State<Theme2IntroPage>
                                           AuthPlatformState>(
                                         bloc: di<AuthPlatformBloc>(),
                                         buildWhen: (prev, curr) =>
-                                            prev.requestStateHuawei !=
+                                        prev.requestStateHuawei !=
                                             curr.requestStateHuawei,
                                         builder: (context, state) {
                                           return _circleAuthButton(
@@ -370,20 +356,20 @@ class _Theme2IntroPageState extends State<Theme2IntroPage>
                                   ),
                                   TextSpan(
                                     text:
-                                        StringManager.termsOfService.tr(),
+                                    StringManager.termsOfService.tr(),
                                     style: const TextStyle(
                                       decoration:
-                                          TextDecoration.underline,
+                                      TextDecoration.underline,
                                       decorationColor: ColorManager.onDark,
                                     ),
                                   ),
                                   const TextSpan(text: ' • '),
                                   TextSpan(
                                     text:
-                                        StringManager.privacyPolicy_.tr(),
+                                    StringManager.privacyPolicy_.tr(),
                                     style: const TextStyle(
                                       decoration:
-                                          TextDecoration.underline,
+                                      TextDecoration.underline,
                                       decorationColor: ColorManager.onDark,
                                     ),
                                   ),
@@ -392,7 +378,7 @@ class _Theme2IntroPageState extends State<Theme2IntroPage>
                               style: context.bodyMedium
                                   .size(12)
                                   .colorExt(ColorManager.onDark
-                                      .withValues(alpha: 0.7)),
+                                  .withValues(alpha: 0.7)),
                             ),
                           ),
                         ),
@@ -431,28 +417,28 @@ class _Theme2IntroPageState extends State<Theme2IntroPage>
         ),
         child: isLoading
             ? Center(
-                child: SizedBox(
-                  height: 22.h,
-                  width: 22.w,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: ColorManager.primary,
-                  ),
-                ),
-              )
+          child: SizedBox(
+            height: 22.h,
+            width: 22.w,
+            child: CircularProgressIndicator(
+              strokeWidth: 2,
+              color: ColorManager.primary,
+            ),
+          ),
+        )
             : Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Image.asset(icon, height: 24.h, width: 24.w),
-                  10.wBox,
-                  TextWidget(
-                    label,
-                    style: context.bodyMedium.w500
-                        .size(15)
-                        .colorExt(ColorManager.textPrimary),
-                  ),
-                ],
-              ),
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(icon, height: 24.h, width: 24.w),
+            10.wBox,
+            TextWidget(
+              label,
+              style: context.bodyMedium.w500
+                  .size(15)
+                  .colorExt(ColorManager.textPrimary),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -476,18 +462,18 @@ class _Theme2IntroPageState extends State<Theme2IntroPage>
         ),
         child: isLoading
             ? Center(
-                child: SizedBox(
-                  height: 20.h,
-                  width: 20.w,
-                  child: const CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: ColorManager.white,
-                  ),
-                ),
-              )
+          child: SizedBox(
+            height: 20.h,
+            width: 20.w,
+            child: const CircularProgressIndicator(
+              strokeWidth: 2,
+              color: ColorManager.white,
+            ),
+          ),
+        )
             : Center(
-                child: Image.asset(icon, height: 28.h, width: 28.w),
-              ),
+          child: Image.asset(icon, height: 28.h, width: 28.w),
+        ),
       ),
     );
   }

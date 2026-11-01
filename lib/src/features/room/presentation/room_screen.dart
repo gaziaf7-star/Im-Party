@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:general/src/features/room/presentation/component/widgets/room_edge_swipe_minimize.dart';
 import 'package:general/src/features/carom/carom_room_controller.dart';
 import 'package:general/src/features/carom/game_room_hub.dart';
 import 'package:general/src/features/ludo/ludo_room_controller.dart';
@@ -118,6 +119,11 @@ class RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
   /// see [_tryPublishSoundWaveAttribute].
   StreamSubscription<VipStates>? _vipBagSub;
 
+  /// Re-publishes the avatar frame whenever the user's own data reloads
+  /// (e.g. after wearing a different frame), see
+  /// [_tryPublishSoundWaveAttribute].
+  StreamSubscription<FetchUserDataState>? _myDataSub;
+
 
   /// Configure the audio session for Bluetooth and route output to a connected
   /// headset (falling back to the loudspeaker). Delegates the actual routing to
@@ -190,6 +196,43 @@ class RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
         _tryPublishSoundWaveAttribute();
       }
     });
+    // Same one-shot problem for the avatar frame ('fr'/'frt'): a frame that
+    // my-data delivers (or that changes) after the join never reached the
+    // seat, while the profile sheet -- which loads fresh data -- showed it.
+    // Refresh my-data on entry and re-publish the frame whenever it lands.
+    _myDataSub = di<FetchUserDataBloc>().stream.listen((state) {
+      if (state.reqState.isLoaded) {
+        _tryPublishSoundWaveAttribute();
+        // A new frame worn from the backpack shows up here too.
+        _loadSelfFrame();
+      }
+    });
+    di<FetchUserDataBloc>().add(const FetchMyDataEvent(isLoading: false));
+    _loadSelfFrame();
+  }
+
+  /// The user's own frame as the users API reports it -- the same source the
+  /// profile sheet uses, which also carries frames my-data leaves empty
+  /// (e.g. a VIP frame). Preferred over my-data when publishing 'fr'/'frt'.
+  String? _selfFrame;
+  String? _selfFrameType;
+
+  DateTime? _selfFrameLoadedAt;
+
+  Future<void> _loadSelfFrame() async {
+    final myId = MyDataModel.getInstance().id;
+    if (myId == null || myId <= 0) return;
+    // my-data emits often (unread counters...); one lookup per 15 s is plenty.
+    final last = _selfFrameLoadedAt;
+    if (last != null && DateTime.now().difference(last).inSeconds < 15) return;
+    _selfFrameLoadedAt = DateTime.now();
+    try {
+      final me = (await getUsersByIds([myId]))[myId];
+      if (me == null || !mounted) return;
+      _selfFrame = me.frame;
+      _selfFrameType = me.frameType;
+      _tryPublishSoundWaveAttribute();
+    } catch (_) {}
   }
 
   /// Publishes the resolved Sound Wave SVGA (see
@@ -210,12 +253,21 @@ class RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
   /// (VIP bag loaded, connection changed, canPublish changed) is safe to
   /// call repeatedly -- each just re-sends the same small attribute map.
   void _tryPublishSoundWaveAttribute() {
-    if (di<VipCenterBloc>().state.vipBag.isEmpty) return;
     final controller = RoomData.instance.utdController;
     if (controller == null || !controller.isConnected) return;
-    final sw = _resolveActiveSoundWaveSvga();
-    if (sw.isEmpty) return;
-    controller.updateSelfAttributes({'sw': sw});
+    final me = MyDataModel.getInstance();
+    // The avatar frame rides along: the join-time attributes are read only
+    // once, so this is what keeps the seat's frame in step with my-data.
+    final useFresh = (_selfFrame ?? '').isNotEmpty;
+    final attrs = <String, String>{
+      'fr': useFresh ? _selfFrame! : (me.frame ?? ''),
+      'frt': useFresh ? (_selfFrameType ?? '') : (me.frameType ?? ''),
+    };
+    if (di<VipCenterBloc>().state.vipBag.isNotEmpty) {
+      final sw = _resolveActiveSoundWaveSvga();
+      if (sw.isNotEmpty) attrs['sw'] = sw;
+    }
+    controller.updateSelfAttributes(attrs);
   }
 
   /// Resolves the SVGA asset for the local user's currently-equipped
@@ -291,6 +343,7 @@ class RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
   void dispose() {
     _audioDevicesSub?.cancel();
     _vipBagSub?.cancel();
+    _myDataSub?.cancel();
     RoomData.instance.utdController?.mediaController.canPublish
         .removeListener(_tryPublishSoundWaveAttribute);
     di<GiftBloc>().add(
@@ -600,7 +653,9 @@ class RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
         systemStatusBarContrastEnforced: false,
         systemNavigationBarContrastEnforced: false,
       ),
-      child: PopScope(
+      child: RoomEdgeSwipeMinimize(
+        // Swipe in from the left edge to minimize (as in im_Chat).
+        child: PopScope(
         canPop: false,
         onPopInvokedWithResult: (didPop, _) {
           if (didPop) return;
@@ -784,8 +839,14 @@ class RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
                       // Set through config rather than overlayBuilder, because that
                       // hook replaces the whole overlay -- drag and edge-snap with it.
                       overlayWidth: 76,
-                      overlayHeight: 108,
+                      overlayHeight: 76,
                       borderRadius: 38,
+                      // Round bubble like im_Chat, but in miva's own violet
+                      // (im_Chat's ring is yellow) with a close corner.
+                      ringColor: const Color(0xFFA855F7),
+                      ringWidth: 3.5,
+                      showCloseCorner: true,
+                      imageDimOpacity: 0,
                       showLeaveButton: false,
                       showMicToggle: false,
                       roomImage: EndPoints.getImage(
@@ -1008,6 +1069,7 @@ class RoomScreenState extends State<RoomScreen> with TickerProviderStateMixin {
             ),
           ),
         ),
+      ),
       ),
     );
   }

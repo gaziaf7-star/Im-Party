@@ -122,7 +122,10 @@ class MyDataModel extends MyDataEntity {
     // MyDataEntity/MyDataModel field, since this model's constructor and its
     // several copyWith call sites below are large and easy to leave one out
     // of by mistake.
-    StringManager.isCoinSeller = parseValue<bool>(map['coin_seller'], false);
+    // Newer servers send the role as `role` / `user_type` = "coin_seller".
+    StringManager.isCoinSeller = parseValue<bool>(map['coin_seller'], false) ||
+        map['role']?.toString() == 'coin_seller' ||
+        map['user_type']?.toString() == 'coin_seller';
 
     return MyDataModel(
       id: parseValue<int>(map['id'], 0),

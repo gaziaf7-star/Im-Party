@@ -1,4 +1,8 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter_svga/flutter_svga.dart';
+import 'package:general/src/core/cache/image_cache_manager.dart';
 import 'package:general/src/core/cache/svga_movie_cache.dart';
 import 'package:general/src/core/index.dart';
 import 'package:general/src/core/utils/app_lifecycle_signal.dart';
@@ -47,6 +51,17 @@ class CacheSvgaWidget extends StatefulWidget {
   /// its animation at once like it does in the room itself.
   final bool autoPlay;
 
+  /// Pictures painted into named image slots of the movie once it is decoded
+  /// (slot key -> image url), e.g. the joining user's photo into the
+  /// `sender_avatar` slot of an SVIP entry animation. Each picture is cropped
+  /// to a circle. Keys the movie does not contain are ignored.
+  final Map<String, String>? dynamicImageUrls;
+
+  /// Text painted into named slots of the movie (slot key -> text), e.g.
+  /// the joining user's name under [kSenderNameKey]. See [applySenderName]
+  /// for which slot a name lands in. Keys the movie cannot take are ignored.
+  final Map<String, String>? dynamicTexts;
+
   const CacheSvgaWidget({
     required this.url,
     this.height,
@@ -62,6 +77,8 @@ class CacheSvgaWidget extends StatefulWidget {
     this.isAsset = false,
     this.pauseWhenHidden = false,
     this.autoPlay = true,
+    this.dynamicImageUrls,
+    this.dynamicTexts,
     super.key,
   });
 
@@ -154,6 +171,10 @@ class CacheSvgaWidgetState extends State<CacheSvgaWidget>
         _animationController = SVGAAnimationController(vsync: this)
           ..videoItem = movie;
 
+        await _applyDynamicImages(movie);
+        _applyDynamicTexts(movie);
+        if (_isDisposed) return;
+
         if (widget.isShowGift) {
           Methods.printLog(
             '✅ [SVGA] gift decoded; starting animation',
@@ -192,6 +213,43 @@ class CacheSvgaWidgetState extends State<CacheSvgaWidget>
       }
 
       _handleErrorWithGiftFallback("failed_to_load_svga");
+    }
+  }
+
+  /// Paints [CacheSvgaWidget.dynamicImageUrls] into the movie's image slots.
+  Future<void> _applyDynamicImages(MovieEntity movie) async {
+    final urls = widget.dynamicImageUrls;
+    if (urls == null || urls.isEmpty) return;
+    for (final entry in urls.entries) {
+      final key = entry.key;
+      final raw = entry.value.trim();
+      if (raw.isEmpty) continue;
+      if (key == kSenderAvatarKey) {
+        await applySenderAvatar(movie, raw);
+        continue;
+      }
+      if (!movie.bitmapCache.containsKey(key)) continue;
+      try {
+        final image = await loadCircularSvgaAvatar(raw, slot: key);
+        if (image != null) movie.dynamicItem.setImage(image, key);
+      } catch (e) {
+        Methods.printLog('⚠️ [SVGA] slot "$key" failed: $e');
+      }
+    }
+  }
+
+  /// Paints [CacheSvgaWidget.dynamicTexts] into the movie's text slots.
+  void _applyDynamicTexts(MovieEntity movie) {
+    final texts = widget.dynamicTexts;
+    if (texts == null || texts.isEmpty) return;
+    for (final entry in texts.entries) {
+      final text = entry.value.trim();
+      if (text.isEmpty) continue;
+      if (entry.key == kSenderNameKey) {
+        applySenderName(movie, text);
+      } else if (movie.bitmapCache.containsKey(entry.key)) {
+        movie.dynamicItem.setText(_svgaTextPainter(text, 24), entry.key);
+      }
     }
   }
 
@@ -423,4 +481,212 @@ class CacheSvgaWidgetState extends State<CacheSvgaWidget>
       },
     );
   }
+}
+
+
+
+/// Image slot the SVIP entry animations name for the joining user's picture.
+const String kSenderAvatarKey = 'sender_avatar';
+
+/// Text slot for the joining user's name. Designers can add a layer with
+/// this key to any entry animation and the name is filled in automatically.
+const String kSenderNameKey = 'sender_name';
+
+/// Entry animations that already carry a name strip under another key,
+/// matched by image size so an unrelated layer with the same key is never
+/// written over: SVIP 8's `banner` (320x32) sits right under the avatar
+/// badge.
+const List<(String, int, int)> _nameBanners = [('banner', 320, 32)];
+
+TextPainter _svgaTextPainter(String text, double fontSize) => TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: fontSize,
+          fontWeight: FontWeight.w700,
+          color: Colors.white,
+          shadows: const [Shadow(color: Color(0xAA000000), blurRadius: 3)],
+        ),
+      ),
+      maxLines: 1,
+      ellipsis: '...',
+      textAlign: TextAlign.center,
+      textDirection: TextDirection.ltr,
+    )..layout(maxWidth: 300);
+
+/// Writes the joining user's [name] into [movie]: into its `sender_name`
+/// slot when it has one, otherwise into a known name strip. Returns false
+/// when the movie has nowhere to show a name.
+bool applySenderName(MovieEntity movie, String name) {
+  final text = name.trim();
+  if (text.isEmpty) return false;
+  final slot = movie.bitmapCache[kSenderNameKey];
+  if (slot != null) {
+    movie.dynamicItem
+        .setText(_svgaTextPainter(text, slot.height * 0.6), kSenderNameKey);
+    return true;
+  }
+  for (final (key, w, h) in _nameBanners) {
+    final img = movie.bitmapCache[key];
+    if (img != null && img.width == w && img.height == h) {
+      movie.dynamicItem.setText(_svgaTextPainter(text, h * 0.62), key);
+      return true;
+    }
+  }
+  return false;
+}
+
+/// Entry animations that have NO `sender_avatar` slot but an empty badge hole
+/// baked into one of their images (e.g. SVIP 8): the picture is drawn over the
+/// hole with the movie's dynamic drawer, so it follows the sprite's own
+/// transform and fades in/out with it.
+class _AvatarHole {
+  final String spriteKey;
+  final String companionKey;
+  final int width;
+  final int height;
+  final Offset center;
+  final double radius;
+  final int fadeInFrom;
+  final int fadeInTo;
+  final int fadeOutFrom;
+  final int fadeOutTo;
+
+  const _AvatarHole({
+    required this.spriteKey,
+    required this.companionKey,
+    required this.width,
+    required this.height,
+    required this.center,
+    required this.radius,
+    required this.fadeInFrom,
+    required this.fadeInTo,
+    required this.fadeOutFrom,
+    required this.fadeOutTo,
+  });
+
+  double alphaAt(int frame) {
+    if (frame <= fadeInFrom) return 0;
+    if (frame < fadeInTo) {
+      return (frame - fadeInFrom) / (fadeInTo - fadeInFrom);
+    }
+    if (frame >= fadeOutTo) return 0;
+    if (frame >= fadeOutFrom) {
+      return (fadeOutTo - frame) / (fadeOutTo - fadeOutFrom);
+    }
+    return 1;
+  }
+}
+
+// SVIP 8 entry ("sVIP 8 entry.svga"): the hexagon badge is part of image "66"
+// (554x195, hole centre ~(275,78)); its sprite fades in over frames 12-18 and
+// out over 146-149.
+const List<_AvatarHole> _avatarHoles = [
+  _AvatarHole(
+    spriteKey: '66',
+    companionKey: 'banner',
+    width: 554,
+    height: 195,
+    center: Offset(275, 78),
+    radius: 28,
+    fadeInFrom: 12,
+    fadeInTo: 18,
+    fadeOutFrom: 145,
+    fadeOutTo: 149,
+  ),
+];
+
+_AvatarHole? _avatarHoleFor(MovieEntity movie) {
+  for (final h in _avatarHoles) {
+    final img = movie.bitmapCache[h.spriteKey];
+    if (img != null &&
+        img.width == h.width &&
+        img.height == h.height &&
+        movie.bitmapCache.containsKey(h.companionKey)) {
+      return h;
+    }
+  }
+  return null;
+}
+
+/// Puts the joining user's picture (circle) into [movie]: into its
+/// `sender_avatar` slot when it has one, otherwise over the known badge hole.
+/// Returns false when the movie offers neither or the picture is unavailable.
+Future<bool> applySenderAvatar(MovieEntity movie, String raw) async {
+  final bool hasSlot = movie.bitmapCache.containsKey(kSenderAvatarKey);
+  final hole = hasSlot ? null : _avatarHoleFor(movie);
+  if (!hasSlot && hole == null) return false;
+  try {
+    final image = await loadCircularSvgaAvatar(raw, slot: kSenderAvatarKey);
+    if (image == null) return false;
+    if (hasSlot) {
+      movie.dynamicItem.setImage(image, kSenderAvatarKey);
+    } else {
+      final src = Rect.fromLTWH(0, 0, image.width.toDouble(), image.height.toDouble());
+      final dst = Rect.fromCircle(center: hole!.center, radius: hole.radius);
+      movie.dynamicItem.setDynamicDrawer((canvas, frame) {
+        final a = hole.alphaAt(frame);
+        if (a <= 0) return;
+        canvas.drawImageRect(
+          image,
+          src,
+          dst,
+          Paint()
+            ..isAntiAlias = true
+            ..filterQuality = FilterQuality.high
+            ..color = Color.fromARGB((a * 255).round(), 255, 255, 255),
+        );
+      }, hole.spriteKey);
+    }
+    return true;
+  } catch (e) {
+    Methods.printLog('⚠️ [SVGA] sender avatar failed: $e');
+    return false;
+  }
+}
+
+/// Loads [raw] (a backend picture url / relative path) as a square, circular
+/// `ui.Image` ready to be painted into an SVGA image slot; null when the
+/// picture is not available.
+Future<ui.Image?> loadCircularSvgaAvatar(String raw, {String slot = ''}) async {
+  final url = _fixBackendUrl(raw.trim());
+  Methods.printLog('🎭 [SVGA] slot "$slot" <- "$raw" -> "$url"');
+  final file = await AssetCacheManager().getCachedAsset(url);
+  if (file == null) {
+    Methods.printLog('⚠️ [SVGA] slot "$slot": image not available ($url)');
+    return null;
+  }
+  return _circularImage(await file.readAsBytes());
+}
+
+/// `https://host/profile/x.jpg` is a 404: the file is under `/storage/`.
+String _fixBackendUrl(String raw) {
+  final host = '${EndPoints.domainURL}/';
+  if (raw.startsWith(host)) {
+    final rest = raw.substring(host.length);
+    if (rest.startsWith('profile/')) return EndPoints.getImage(rest);
+  }
+  return EndPoints.getImage(raw);
+}
+
+/// Centre-crops [bytes] to a square and clips it to a circle.
+Future<ui.Image?> _circularImage(Uint8List bytes) async {
+  const double side = 256;
+  final codec = await ui.instantiateImageCodec(bytes);
+  final frame = await codec.getNextFrame();
+  codec.dispose();
+  final src = frame.image;
+  final m = math.min(src.width, src.height).toDouble();
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder);
+  canvas.clipPath(Path()..addOval(const Rect.fromLTWH(0, 0, side, side)));
+  canvas.drawImageRect(
+    src,
+    Rect.fromLTWH((src.width - m) / 2, (src.height - m) / 2, m, m),
+    const Rect.fromLTWH(0, 0, side, side),
+    Paint()
+      ..isAntiAlias = true
+      ..filterQuality = FilterQuality.high,
+  );
+  return recorder.endRecording().toImage(side.toInt(), side.toInt());
 }

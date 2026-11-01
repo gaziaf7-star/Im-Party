@@ -15,7 +15,7 @@ class RechargeTabBar extends StatelessWidget {
           isScrollable: false,
           dividerHeight: 0,
           indicatorColor: ColorManager.primary,
-          unselectedLabelStyle: context.bodyMedium.size(16).w400.colorExt( ColorManager.secondaryText),
+          unselectedLabelStyle: context.bodyMedium.size(16).w400.colorExt( ColorManager.grey),
           labelStyle: context.bodyMedium.size(16).w600.colorExt( ColorManager.primary),
           indicatorPadding: context.paddingOnly(top: 0,start: 2,end: 2),
           tabs:  [

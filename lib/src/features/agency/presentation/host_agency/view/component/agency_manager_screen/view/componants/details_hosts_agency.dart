@@ -1,3 +1,4 @@
+import 'package:general/src/features/agency/presentation/host_agency/view/widgets/agency_ui.dart';
 import 'package:general/src/core/index.dart';
 import 'package:general/src/core/widgets/id_with_copy.dart';
 import 'package:general/src/features/agency/domain/entity/hosts_agency_dollars_records_entity.dart';
@@ -31,11 +32,11 @@ class _HostsAgencyDollarsRecordsScreenState
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorManager.scaffoldBgAlt,
+      backgroundColor: Colors.white,
       appBar: AppBarWidget(
-        backgroundColor: ColorManager.scaffoldBg,
+        backgroundColor: Colors.white,
         title: StringManager.record.tr(),
-        titleStyle: context.bodyLarge.w600.colorExt(ColorManager.textPrimary),
+        titleStyle: context.bodyLarge.w600.colorExt(ColorManager.momentPostTextColor),
       ),
       body: CustomScrollView(
         physics: const AlwaysScrollableScrollPhysics(),
@@ -82,7 +83,7 @@ class _TabBarViewBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return RefreshIndicator(
       color: ColorManager.primary,
-      backgroundColor: ColorManager.scaffoldBg,
+      backgroundColor: Colors.white,
       onRefresh: () async {
         final bloc = di<HostsAgencyDollarsRecordsBloc>();
         bloc.add(const GetSenderHostsAgencyRecordsEvent());
@@ -111,7 +112,7 @@ class _TabBarViewBody extends StatelessWidget {
                 ? (data?[index].receiverEntity?.imageColorEntity ??
                     const ImageColorEntity())
                 : null,
-          );
+          ).agencyEntrance(index);
         },
       ),
     );
@@ -183,20 +184,20 @@ class _CustomRowData extends StatelessWidget {
                     width: ScreenUtil().screenWidth * 0.5,
                     text: name ?? "",
                     color: Methods.safeHexColor(coloredName) ??
-                        ColorManager.textPrimary,
+                        ColorManager.momentPostTextColor,
                     mainAxisAlignment: MainAxisAlignment.center,
                     textAlign: TextAlign.center,
                     textStyle: context.bodyMedium.size(14).w600.colorExt(
                           Methods.safeHexColor(coloredName) ??
-                              ColorManager.textPrimary,
+                              ColorManager.momentPostTextColor,
                         ),
                   ),
                   7.hBox,
                   IdWithCopyIcon(
                     userId: id ?? "",
                     idStyle: context.bodyMedium.size(12).colorExt(
-                        ColorManager.secondaryText),
-                    idColor: ColorManager.secondaryText,
+                        ColorManager.grey),
+                    idColor: ColorManager.grey,
                     isNeedCopyIcon: true,
                     isSpecial: ((idImage ?? '') != ''),
                     specialImg: idImage ?? '',
@@ -207,7 +208,7 @@ class _CustomRowData extends StatelessWidget {
                   TextWidget(
                     Methods.formatTime(date ?? ""),
                     style: context.bodyMedium.size(12).colorExt(
-                        ColorManager.secondaryText),
+                        ColorManager.grey),
                   ),
                 ],
               ),

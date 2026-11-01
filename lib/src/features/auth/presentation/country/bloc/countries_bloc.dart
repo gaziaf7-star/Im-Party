@@ -69,10 +69,17 @@ class CountriesBloc extends Bloc<CountriesEvent, CountriesState> {
     FetchHomeCountriesEvent event,
     Emitter<CountriesState> emit,
   ) async {
-    emit(state.copyWith(homeCountriesRequestState: RequestState.loading));
+    // A pull-to-refresh refetches this list. Showing the loading state (or an
+    // error) while a list is already on screen made the whole country row
+    // vanish on every refresh; keep the current row and swap it in place.
+    final hasRow = state.homeCountries.isNotEmpty;
+    if (!hasRow) {
+      emit(state.copyWith(homeCountriesRequestState: RequestState.loading));
+    }
     final result = await _fetchCountriesByCategoryUc(event.categoryId);
     result.fold(
       (left) {
+        if (hasRow) return;
         emit(state.copyWith(homeCountriesRequestState: RequestState.error));
       },
       (right) {

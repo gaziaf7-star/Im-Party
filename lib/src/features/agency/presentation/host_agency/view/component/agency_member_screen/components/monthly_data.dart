@@ -2,6 +2,7 @@ import 'dart:developer';
 
 import 'package:general/src/core/index.dart';
 import 'package:general/src/features/agency/presentation/host_agency/bloc/agency_host_report/agency_host_report_bloc.dart';
+import 'package:general/src/features/agency/presentation/host_agency/view/widgets/agency_ui.dart';
 import 'package:general/src/features/agency/presentation/host_agency/view/widgets/monthly_data_item_widget.dart';
 
 class MonthlyData extends StatelessWidget {
@@ -20,8 +21,8 @@ class MonthlyData extends StatelessWidget {
         children: [
           TextWidget(
             StringManager.mounthlyData.tr(),
-            style: context.bodyMedium.bold,
-          ),
+            style: AgencyUI.title(context),
+          ).agencyEntrance(2),
           10.hBox,
           Column(
             children: [
@@ -47,7 +48,7 @@ class MonthlyData extends StatelessWidget {
                     icon: AssetsManager.moneyBag,
                     scale: 14,
                   ),
-                  20.wBox,
+                  12.wBox,
                   MonthlyDataItemWidget(
                     title: StringManager.diamond.tr(),
                     value: (state.data?.diamonds ?? '0').toString(),
@@ -55,7 +56,7 @@ class MonthlyData extends StatelessWidget {
                     icon: AssetsManager.agencydiamond,
                   ),
                 ],
-              ),
+              ).agencyEntrance(3),
               10.hBox,
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -66,7 +67,7 @@ class MonthlyData extends StatelessWidget {
                     textColor: ColorManager.blue2,
                     icon: AssetsManager.agencyclock,
                   ),
-                  20.wBox,
+                  12.wBox,
                   MonthlyDataItemWidget(
                     title: StringManager.effectDays.tr(),
                     value: "${state.data?.activeDays ?? 0}",
@@ -74,7 +75,7 @@ class MonthlyData extends StatelessWidget {
                     icon: AssetsManager.agencycalendar,
                   ),
                 ],
-              ),
+              ).agencyEntrance(4),
             ],
           ),
         ],

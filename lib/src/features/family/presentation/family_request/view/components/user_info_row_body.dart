@@ -45,7 +45,7 @@ class _UserInfoRowBody extends StatelessWidget {
                   GradientName(child: TextWidget(
                     userEntity.name ?? "",
                     style: context.bodyLarge.w700
-                        .colorExt(ColorManager.textPrimary.withValues(alpha: (0.7 ))),
+                        .colorExt(ColorManager.momentPostTextColor.withValues(alpha: (0.7 ))),
                   )),
                   IdWithCopyIcon(
                     userId: userEntity.uuid??'',
@@ -55,7 +55,7 @@ class _UserInfoRowBody extends StatelessWidget {
                     color: userEntity.imageColorEntity?.color,
                     img: userEntity.imageColorEntity?.image,
                     idStyle: context.bodyMedium.w400
-                        .colorExt(ColorManager.secondaryText)
+                        .colorExt(ColorManager.grey)
                         .copyWith(height: 0.1, fontSize: 11.sp),
                   ),
                 ],

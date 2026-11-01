@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:async';
 import 'package:general/src/core/widgets/on_multiable_tab.dart';
 import 'package:general/src/features/home/presentation/home/bloc/fetch_my_room_data_manager/fetch_my_room_data_bloc.dart';
@@ -23,13 +24,6 @@ import 'package:general/src/features/profile/presentation/profile/view/profile_s
 import 'package:general/reels_viewer/reels_viewer.dart';
 import 'package:general/src/features/reels/presentation/main_reels_page/view/main_reels_screen.dart';
 import 'package:general/src/features/layout/view/layout_shell_mixin.dart';
-// SVGA controller/widget + movie cache — the same rendering path already
-// used app-wide for gift banners / PK / games, so no new package is
-// introduced here. Used directly (rather than through the ShowSVGA wrapper)
-// so the one-shot select animation can detect its own completion and hand
-// off to the static icon.
-import 'package:flutter_svga/flutter_svga.dart';
-import 'package:general/src/core/cache/svga_movie_cache.dart';
 
 class LayoutPage extends StatefulWidget {
   const LayoutPage({super.key});
@@ -66,6 +60,9 @@ class _LayoutPageState extends State<LayoutPage>
 
   @override
   void initState() {
+    // Draw behind the system navigation bar so the bottom bar's image
+    // continues under the phone's back/home buttons.
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
     if (ConstantsManager.homeScreen == 'audio room' ||
         ConstantsManager.homeScreen == 'live') {
       di<LayoutBloc>().add(const ChangeIndexEvent(currentIdex: 0));
@@ -246,19 +243,12 @@ class _LayoutPageState extends State<LayoutPage>
                       // renders as a normal inline slot inside
                       // _BottomNavigationBar's own Row, at the same height as
                       // every other tab.
-                      bottomNavigationBar: Container(
-                        height: _kBarHeight,
-                        width: ScreenUtil().screenWidth,
-                        // ✅ Bottom bar background hard-locked to white.
-                        // Deliberately NOT using RegionBackground /
-                        // ColorManager.bottomNavColor here anymore — those
-                        // are driven by the admin panel's "colors" API and
-                        // would silently override a plain color change, so
-                        // this bypasses that entirely and stays white no
-                        // matter what the panel sends.
-                        decoration: const BoxDecoration(
-                          color: ColorManager.white,
-                        ),
+                      // Bottom bar background comes from the admin panel's
+                      // nav region (`regions.nav`: color / gradient / image);
+                      // white when the panel sends none.
+                      // The bar's background also runs under the phone's
+                      // system back/home buttons; only the icons stay above.
+                      bottomNavigationBar: _SystemInsetBar(
                         child: _BottomNavigationBar(
                           index: state.currentIndex,
                           isGameAvailable: isGameAvailable,
@@ -310,7 +300,10 @@ const List<Color> _kNavSelectedGradient = [
 /// brand-driven, with a ring in the bar's own colour so the button reads as
 /// punched through the bar rather than floating over it.
 class _GoLiveButton extends StatelessWidget {
-  const _GoLiveButton();
+  const _GoLiveButton({this.icon});
+
+  /// Admin-panel icon replacing the default circle glyph.
+  final NavIconUrls? icon;
 
   /// The go-live control, moved here from the home header.
   ///
@@ -360,7 +353,7 @@ class _GoLiveButton extends StatelessWidget {
               Methods.handleRoomEntry(context, state.rooms?.audio);
             }
           },
-          child: _circle(),
+          child: icon != null ? _panelGlyph(icon!) : _circle(),
         );
       },
     );
@@ -373,6 +366,16 @@ class _GoLiveButton extends StatelessWidget {
   /// so this card always matches the tab select color regardless of what
   /// the panel's primary color is set to. Sized to sit inline inside the
   /// bar's own row now (no longer a raised/overhanging button).
+  Widget _panelGlyph(NavIconUrls icon) {
+    final url = icon.active.isNotEmpty ? icon.active : icon.inactive;
+    return ImageViewWidget(
+      url: url,
+      height: 60.h,
+      width: 60.h,
+      boxFit: BoxFit.contain,
+    );
+  }
+
   Widget _circle() {
     return Container(
       height: _kGoLiveDiameter.h,
@@ -417,16 +420,17 @@ class _NavTab {
     required this.activeAsset,
     required this.inactiveAsset,
     required this.label,
+    this.panelIcon,
   });
+
+  /// Icons from the admin panel (`nav_icons`); when set they replace the
+  /// bundled assets below.
+  final NavIconUrls? panelIcon;
 
   /// Index this tab selects in [LayoutBloc] — NOT its position in the bar.
   final int blocIndex;
 
-  /// Animated SVGA icon, played (looping) ONLY while this tab is selected.
-  /// Played once on select via a raw [SVGAAnimationController] — NOT routed
-  /// through the admin panel's nav-icon
-  /// URLs, so this exact icon always shows regardless of what the panel has
-  /// configured.
+  /// Bundled active icon of this tab.
   final String activeAsset;
 
   /// Plain PNG/WebP icon shown while this tab is NOT selected. Rendered
@@ -453,6 +457,30 @@ class _BottomNavigationBar extends StatelessWidget {
   int _liveSlot(int tabCount) => tabCount ~/ 2;
 
   List<_NavTab> _tabs() {
+    // Fixed order: Home · Moment · [go live] · Chat · Mine. The admin panel's
+    // `nav_icons` are matched by BAR POSITION (slot 2 is the centre go-live
+    // button, see [_centerPanelIcon]); a tab whose slot is empty keeps its
+    // bundled icon.
+    final tabs = _assetTabs();
+    if (ColorManager.navIcons.isEmpty) return tabs;
+    const slotForBlocIndex = {0: 0, 3: 1, _kChatBlocIndex: 3, 4: 4};
+    return [
+      for (final t in tabs)
+        _NavTab(
+          blocIndex: t.blocIndex,
+          activeAsset: t.activeAsset,
+          inactiveAsset: t.inactiveAsset,
+          label: t.label,
+          panelIcon: ColorManager.navIconAt(slotForBlocIndex[t.blocIndex] ?? -1),
+        ),
+    ];
+  }
+
+  /// Panel icon for the centre go-live button (`nav_icons` slot 2).
+  static NavIconUrls? get _centerPanelIcon => ColorManager.navIconAt(2);
+
+  List<_NavTab> _assetTabs() {
+
     return [
       _NavTab(
         blocIndex: 0,
@@ -568,7 +596,8 @@ class _BottomNavigationBar extends StatelessWidget {
         // reserved blank space under a raised button drawn separately above
         // the bar) — same Expanded flex as every other tab, so it sits
         // flush with them instead of floating above.
-        rowChildren.add(const Expanded(child: Center(child: _GoLiveButton())));
+        rowChildren.add(Expanded(
+            child: Center(child: _GoLiveButton(icon: _centerPanelIcon))));
       }
       final tab = tabs[i];
       byPosition[rowChildren.length] = tab;
@@ -594,13 +623,9 @@ class _BottomNavigationBar extends StatelessWidget {
 /// A single bottom-bar destination: icon + label, animating between its
 /// plain/inactive look and a colored "select" state.
 ///
-/// Selecting a tab plays its SVGA ONCE — a short "pop-in" transition, not a
-/// persistent loop — then the icon settles back to the plain static
-/// PNG/WebP (the selected/unselected difference is carried by the circle +
-/// label color, not by the icon itself staying animated). Needs to be a
-/// StatefulWidget (was StatelessWidget) because "has the one-shot animation
-/// finished" is real state that must survive rebuilds and be reset whenever
-/// the tab goes from unselected -> selected again.
+/// Tapping a tab spins its icon once like a flipping coin (as in im_Chat).
+/// Needs to be a StatefulWidget because the spin animation is real state
+/// that must survive rebuilds; it restarts on every tap.
 class _NavTabItem extends StatefulWidget {
   const _NavTabItem({
     required this.tab,
@@ -622,68 +647,79 @@ class _NavTabItemState extends State<_NavTabItem>
     with SingleTickerProviderStateMixin {
   static const Duration _kDuration = Duration(milliseconds: 300);
 
-  late final SVGAAnimationController _svgaController;
-
-  /// True once the current one-shot select animation has finished (or was
-  /// never started) — the plain static icon shows whenever this is true.
-  bool _svgaDone = true;
-
-  @override
-  void initState() {
-    super.initState();
-    _svgaController = SVGAAnimationController(vsync: this);
-    if (widget.isSelected) _playOnce();
-  }
-
-  @override
-  void didUpdateWidget(covariant _NavTabItem oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.isSelected && !oldWidget.isSelected) {
-      // Freshly selected: play the pop-in animation from the start again.
-      _playOnce();
-    } else if (!widget.isSelected && oldWidget.isSelected) {
-      _svgaController.stop();
-    }
-  }
-
-  Future<void> _playOnce() async {
-    if (mounted) setState(() => _svgaDone = false);
-    try {
-      final video =
-      await SvgaMovieCache.instance.loadFromAsset(widget.tab.activeAsset);
-      if (!mounted) return;
-      if (video == null) {
-        // Missing/broken SVGA asset -> fall straight back to the static
-        // icon instead of leaving the slot blank.
-        setState(() => _svgaDone = true);
-        return;
-      }
-      _svgaController.videoItem = video;
-      await _svgaController.forward(from: 0);
-    } catch (_) {
-      // Ignore — the finally below always hands back to the static icon.
-    } finally {
-      if (mounted) setState(() => _svgaDone = true);
-    }
-  }
+  /// One-shot "coin flip" (as in im_Chat): the icon spins once around its
+  /// vertical axis and swells while it turns. Plays on every tap.
+  late final AnimationController _spin = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1500),
+  );
 
   @override
   void dispose() {
-    _svgaController.dispose();
+    _spin.dispose();
     super.dispose();
+  }
+
+  Widget _spinning(Widget child) {
+    return AnimatedBuilder(
+      animation: _spin,
+      child: child,
+      builder: (context, child) {
+        final double v = _spin.value;
+        final double angle = Curves.easeInOutCubic.transform(v) * 2 * math.pi;
+        final double swell = 1 + 0.25 * math.sin(v * math.pi);
+        return Transform.scale(
+          scale: swell,
+          child: Transform(
+            alignment: Alignment.center,
+            transform: Matrix4.identity()
+              ..setEntry(3, 2, 0.0012) // perspective
+              ..rotateY(angle),
+            child: child,
+          ),
+        );
+      },
+    );
+  }
+
+  /// Icon-only bar: every tab shows its active icon (admin panel's, or the
+  /// bundled one) -- no separate inactive artwork, as in im_Chat. The
+  /// selected one sits a little larger.
+  Widget _iconOnly(_NavTab tab, bool isSelected) {
+    final panel = tab.panelIcon;
+    final activeUrl = panel == null
+        ? ''
+        : (panel.active.isNotEmpty ? panel.active : panel.inactive);
+    final Widget icon = activeUrl.isNotEmpty
+        ? ImageViewWidget(
+            url: activeUrl,
+            height: 46.h,
+            width: 46.h,
+            boxFit: BoxFit.contain,
+          )
+        : ImageWidget(image: tab.inactiveAsset, height: 40.h, width: 40.h);
+    return AnimatedScale(
+      duration: _kDuration,
+      curve: Curves.easeOutBack,
+      scale: isSelected ? 1.15 : 1.0,
+      child: icon,
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final tab = widget.tab;
     final bool isSelected = widget.isSelected;
-    // Only during the brief window right after selecting, before the SVGA's
-    // one shot has finished, does the animation show at all.
-    final bool showSvga = isSelected && !_svgaDone;
+    // Admin-panel icon mode: big icons, no labels.
+    final bool iconsOnly = ColorManager.navIcons.isNotEmpty;
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: widget.onTap,
+      onTap: () {
+        // Every tap spins the icon (also re-tapping the selected tab).
+        _spin.forward(from: 0);
+        widget.onTap();
+      },
       child: Padding(
         // Bottom padding > top padding — the whole icon+label block sits
         // centered inside this taller box, which nudges it upward within
@@ -701,32 +737,21 @@ class _NavTabItemState extends State<_NavTabItem>
             // box — the Column above it never sees a size change, so the
             // label below never shifts up/down as a tab is selected.
             SizedBox(
-              height: 44.h,
-              width: 44.h,
+              height: iconsOnly ? 52.h : 44.h,
+              width: iconsOnly ? 52.h : 44.h,
               child: Stack(
                 clipBehavior: Clip.none,
                 alignment: Alignment.center,
                 children: [
+                  if (iconsOnly)
+                    _spinning(_iconOnly(tab, isSelected))
+                  else
                   Builder(builder: (context) {
-                    // One-shot SVGA WHILE it's still playing right after
-                    // selection; the instant it finishes (or the tab isn't
-                    // selected at all) this falls back to the plain static
-                    // PNG/WebP.
-                    final Widget icon = showSvga
-                        ? SizedBox(
-                      height: 28.h,
-                      width: 28.h,
-                      child: SVGAImage(
-                        _svgaController,
-                        fit: BoxFit.contain,
-                        clearsAfterStop: false,
-                      ),
-                    )
-                        : ImageWidget(
+                    final Widget icon = _spinning(ImageWidget(
                       image: tab.inactiveAsset,
                       height: 28.h,
                       width: 28.h,
-                    );
+                    ));
                     // No background circle any more — on request, selecting a
                     // tab now only recolors the icon itself (and its label,
                     // below) to the pink->purple brand gradient, with no
@@ -747,6 +772,7 @@ class _NavTabItemState extends State<_NavTabItem>
                 ],
               ),
             ),
+            if (!iconsOnly) ...[
             2.hBox,
             AnimatedDefaultTextStyle(
               duration: _kDuration,
@@ -771,6 +797,7 @@ class _NavTabItemState extends State<_NavTabItem>
               )
                   : Text(tab.label),
             ),
+            ],
           ],
         ),
       ),
@@ -815,6 +842,87 @@ class _UnreadMessageBadge extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+/// Soft dark veil over an admin nav background IMAGE, so a bright picture
+/// reads calmer and the icons stand out. Nothing for a color/gradient bar.
+class _NavVeil extends StatelessWidget {
+  const _NavVeil({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final region = ColorManager.navRegion;
+    if (region == null || region.type != 'image' || !region.isRenderable) {
+      return child;
+    }
+    return Stack(
+      fit: StackFit.expand,
+      children: [
+        ColoredBox(color: Colors.black.withValues(alpha: 0.18)),
+        child,
+      ],
+    );
+  }
+}
+
+/// The bottom bar, with its background extended under the phone's system
+/// navigation buttons.
+///
+/// The app shell (`_MainLayout` in app.dart) wraps every page in
+/// `SafeArea(bottom: true)` on Android, so this page is laid out ABOVE the
+/// system buttons and the strip behind them stayed black. Instead of removing
+/// that SafeArea for every screen, the bar paints its background downward
+/// past its own box by exactly the inset the ancestors consumed ([_hidden]),
+/// while the icons keep their place above the buttons. Painting outside the
+/// box is fine here: nothing above clips it and nothing else draws there.
+class _SystemInsetBar extends StatelessWidget {
+  const _SystemInsetBar({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    // Inset still visible to this subtree (iOS: SafeArea is off there).
+    final inTree = MediaQuery.viewPaddingOf(context).bottom;
+    // Real system inset of the window, regardless of ancestor SafeAreas.
+    final raw = MediaQueryData.fromView(View.of(context)).viewPadding.bottom;
+    // The part an ancestor SafeArea already moved this page above.
+    final hidden = (raw - inTree).clamp(0.0, double.infinity);
+
+    return SizedBox(
+      height: _kBarHeight + inTree,
+      width: double.infinity,
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Positioned(
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: -hidden,
+            child: ValueListenableBuilder<int>(
+              valueListenable: ConstantsManager.colorsNotifier,
+              builder: (context, _, __) => RegionBackground(
+                descriptor: ColorManager.navRegion,
+                fallback: (_) => const ColoredBox(color: ColorManager.white),
+                // Fill the bar: the image variant stacks the child with
+                // loose constraints.
+                child: SizedBox.expand(
+                  child: _NavVeil(
+                    child: Padding(
+                      padding: EdgeInsets.only(bottom: inTree + hidden),
+                      child: child,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

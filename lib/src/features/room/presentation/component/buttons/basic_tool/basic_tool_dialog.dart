@@ -1,3 +1,6 @@
+import 'package:general/src/features/room/presentation/component/buttons/noise_button.dart';
+import 'package:general/src/features/room/presentation/voice_fx/voice_fx.dart';
+import 'package:general/src/features/room/presentation/room_controls/room_controls_sheet.dart';
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math';
@@ -140,6 +143,67 @@ class _BasicToolDialogState extends State<BasicToolDialog> {
   );
 
   List<ToolConfig> _getAudioToolConfigs() => [
+    ToolConfig(
+      title: 'YouTube',
+      image: 'assets/icons/ui_icons/youtube (1).png',
+      // The real YouTube logo, not the brand-gradient tint.
+      noTint: true,
+      isVisible: (context, widget) =>
+          ConstantsManager.isShowCinemaMode &&
+          (widget.ownerId == widget.userId || widget.isAdmin),
+      onTap: () => _closeThenOpen('youtube_tool', (parentContext) async {
+        _toggleCinema(widget.roomData.id.toString());
+      }),
+    ),
+    // Change Voice: the Mixer sheet (music effect / EQ / voice changer)
+    // applied live to the user's own mic. Android only for now.
+    ToolConfig(
+      title: 'Change Voice',
+      image: '',
+      icon: Icons.graphic_eq_rounded,
+      color: _kToolsIconColor,
+      isVisible: (context, widget) => VoiceFx.isSupported,
+      onTap: () => _closeThenOpen('voice_fx', (parentContext) async {
+        await bottomDailog(
+          context: parentContext,
+          widget: const VoiceMixerSheet(),
+        );
+      }),
+    ),
+    // All Mute / All Comment Lock (new; the per-seat mute and the old
+    // Lock Comments below are unchanged). Owner and admins only.
+    ToolConfig(
+      title: 'All Mute',
+      image: '',
+      icon: Icons.mic_off_rounded,
+      color: _kToolsIconColor,
+      additionalWidget:
+          const RoomControlOnBadge(kind: RoomControlKind.allMute),
+      isVisible: (context, widget) =>
+          widget.ownerId == widget.userId || widget.isAdmin,
+      onTap: () => _closeThenOpen('all_mute', (parentContext) async {
+        await bottomDailog(
+          context: parentContext,
+          widget: const RoomControlsSheet(kind: RoomControlKind.allMute),
+        );
+      }),
+    ),
+    ToolConfig(
+      title: 'All Comment Lock',
+      image: '',
+      icon: Icons.speaker_notes_off_rounded,
+      color: _kToolsIconColor,
+      additionalWidget:
+          const RoomControlOnBadge(kind: RoomControlKind.commentLock),
+      isVisible: (context, widget) =>
+          widget.ownerId == widget.userId || widget.isAdmin,
+      onTap: () => _closeThenOpen('comment_lock', (parentContext) async {
+        await bottomDailog(
+          context: parentContext,
+          widget: const RoomControlsSheet(kind: RoomControlKind.commentLock),
+        );
+      }),
+    ),
     ToolConfig(
       title: LockRoomDialog.roomIsLoked
           ? StringManager.unlockRoom.tr()
@@ -748,9 +812,9 @@ class _BasicToolDialogState extends State<BasicToolDialog> {
       if (PkController.showPK.value || PkController.isPK.value) {
         Methods.showToast(ctx,
             message: StringManager.closePkFirst.tr(), isError: true);
-      } else if (RoomData.instance.isCharismaVisible.value) {
-        Methods.showToast(ctx, message: StringManager.closeCharisma.tr());
       } else {
+        // Charisma no longer blocks YouTube: it is on by default now, and
+        // turning it off would reset everyone's counts. It keeps running.
         showDialog(
           context: ctx,
           builder: (_) => PrivacyDialog(roomId: roomId),
@@ -780,10 +844,23 @@ class _BasicToolDialogState extends State<BasicToolDialog> {
   Widget build(BuildContext context) {
     final hasSpeaker = di<RoomStateManager>().isInAudioRoom &&
         !ConstantsManager.isTheme1;
+    // Mic noise-reduction switch: every audio room, any theme.
+    final hasNoise = di<RoomStateManager>().isInAudioRoom &&
+        RoomData.instance.utdController != null;
 
     final tools = _getAudioToolConfigs()
         .where((tool) => tool.isVisible(context, widget))
         .toList();
+    // Order: YouTube first, then Speaker (non-theme1 audio rooms), the
+    // other tools, and Games last.
+    final youtubeTool = tools.where((t) => t.title == 'YouTube').firstOrNull;
+    final slots = <Object>[
+      if (youtubeTool != null) youtubeTool,
+      if (hasSpeaker) _speakerSlot,
+      if (hasNoise) _noiseSlot,
+      ...tools.where((t) => t != youtubeTool),
+      _gamesSlot,
+    ];
     // Games are available to every room user. Keep using the app's existing
     // GamesView -> OpenGameBloc -> LeaderCCGameWebViewScreen flow; do not
     // introduce a second game/session implementation here.
@@ -886,16 +963,17 @@ class _BasicToolDialogState extends State<BasicToolDialog> {
                   // Always reserve one cell for Games, plus Speaker when
                   // that audio-room control is present. The old count omitted
                   // the Games cell whenever Speaker was visible.
-                  itemCount: tools.length + (hasSpeaker ? 2 : 1),
+                  itemCount: slots.length,
                   itemBuilder: (context, index) {
-                    if (index == 0 &&
-                        hasSpeaker &&
-                        !ConstantsManager.isTheme1) {
+                    final slot = slots[index];
+                    if (slot == _speakerSlot) {
                       return const SpeakerButton();
-                    } else if (index == tools.length + (hasSpeaker ? 1 : 0)) {
+                    } else if (slot == _noiseSlot) {
+                      return const _NoiseToolTile();
+                    } else if (slot == _gamesSlot) {
                       return gamesWidget;
                     }
-                    final tool = tools[index - (hasSpeaker ? 1 : 0)];
+                    final tool = slot as ToolConfig;
 
                     return ValueListenableBuilder(
                       valueListenable: tool.title.contains(StringManager.pk)
@@ -983,6 +1061,44 @@ class _SeatRequestBadge extends StatelessWidget {
           ),
         );
       },
+    );
+  }
+}
+
+const String _speakerSlot = 'speaker';
+const String _noiseSlot = 'noise';
+const String _gamesSlot = 'games';
+
+/// "Noise" tile: switches background-noise reduction on the user's own mic.
+/// Same look as every other tool tile; the label shows the current state.
+class _NoiseToolTile extends StatelessWidget {
+  const _NoiseToolTile();
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = RoomData.instance.utdController;
+    if (controller == null) return const SizedBox.shrink();
+    final media = controller.mediaController;
+    return ValueListenableBuilder<bool>(
+      valueListenable: media.isNoiseReductionOn,
+      builder: (context, isOn, _) => InkWell(
+        onTap: () {
+          final next = !isOn;
+          media.setNoiseReduction(next);
+          NoiseReductionPrefs.save(next);
+          Methods.showToast(
+            context,
+            message: next ? 'Noise reduction on' : 'Noise reduction off',
+          );
+        },
+        child: BasicToolItem(
+          image: '',
+          icon: isOn
+              ? Icons.noise_control_off_rounded
+              : Icons.noise_aware_rounded,
+          title: isOn ? 'Noise: On' : 'Noise: Off',
+        ),
+      ),
     );
   }
 }

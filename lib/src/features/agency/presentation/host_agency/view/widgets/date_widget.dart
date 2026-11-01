@@ -159,7 +159,7 @@ class _DateWidgetState extends State<DateWidget> {
           onPressed: () => Navigator.pop(context),
           child: TextWidget(
             StringManager.cancel.tr(),
-            style: context.bodyMedium.size(15).colorExt(ColorManager.textPrimary),
+            style: context.bodyMedium.size(15).colorExt(ColorManager.momentPostTextColor),
           ),
         ),
         TextButton(
@@ -189,8 +189,8 @@ class _DateWidgetState extends State<DateWidget> {
         },
         showDay: false,
         columnWidth: 130.w,
-        selectedRowStyle: Theme.of(context).textTheme.headlineLarge!.colorExt(ColorManager.textPrimary),
-        unselectedRowStyle: context.bodyLarge.colorExt(ColorManager.textPrimary),
+        selectedRowStyle: Theme.of(context).textTheme.headlineLarge!.colorExt(ColorManager.momentPostTextColor),
+        unselectedRowStyle: context.bodyLarge.colorExt(ColorManager.momentPostTextColor),
         isPersian: false,
       ),
     );

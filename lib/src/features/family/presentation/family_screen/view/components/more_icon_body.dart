@@ -15,8 +15,11 @@ class MoreIconBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return PopupMenuButton(
       iconColor: iconColor,
-      color: ColorManager.black.withValues(alpha: (0.8 )),
-      elevation: 0.0,
+      // White menu card with a soft shadow (was 80% black).
+      color: Colors.white,
+      surfaceTintColor: Colors.white,
+      elevation: 6,
+      shadowColor: Colors.black26,
       style: TextButton.styleFrom(
           minimumSize: const Size(10, 10), padding: context.paddingZero()),
       padding: context.paddingZero(),
@@ -47,6 +50,9 @@ class MoreIconBody extends StatelessWidget {
                     showDialog(
                         context: context,
                         builder: (_) => AnimatedDialog(
+                              dialogBackgroundColor: Colors.white,
+                              titleColor: ColorManager.black,
+                              descriptionColor: ColorManager.black,
                               title: StringManager.deleteFamily.tr(),
                               description:
                                   StringManager.areYouSureDeleteFamily.tr(),

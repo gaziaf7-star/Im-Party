@@ -35,7 +35,7 @@ class GoogleCoinsRechargeHistoryItem extends StatelessWidget {
               TextWidget(
                 Methods()
                     .formatDateTime(dateTime: coinsHistoryModel.date ?? ''),
-                style:  context.bodyMedium.size(12).w400.colorExt(ColorManager.textPrimary),
+                style:  context.bodyMedium.size(12).w400.colorExt(ColorManager.momentPostTextColor),
               ),
             ],
           ),

@@ -39,7 +39,8 @@ PopupMenuItem popUpItemWidget({
                       child: TextWidget(
                         numOfRequests ?? "",
                         style: context?.bodySmall
-                            .colorExt(ColorManager.textPrimary)
+                            // White count on the red badge.
+                            .colorExt(Colors.white)
                             .size(9),
                       ),
                     ),

@@ -754,6 +754,7 @@ class StringManager {
 
   // Coin Seller (Reseller) system
   static const String coinSeller = "Coin Seller";
+  static const String seller = "Seller";
   static const String coinSellerDashboard = "Coin Seller Dashboard";
   static const String resellerDirectory = "Top Coin Sellers";
   static const String top = "Top";

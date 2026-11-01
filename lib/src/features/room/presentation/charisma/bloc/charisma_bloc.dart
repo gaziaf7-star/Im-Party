@@ -1,4 +1,6 @@
 import 'dart:async';
+import 'dart:convert';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:general/src/features/room/domain/use_case/get_charisma_extra_data_uc.dart';
 import 'package:general/src/features/room/domain/use_case/get_charisma_levels_uc.dart';
 import 'package:general/src/features/room/domain/use_case/start_charisma_uc.dart';
@@ -73,6 +75,9 @@ class CharismaBloc extends Bloc<CharismaEvent, CharismaState> {
       },
       (r) {
         final bool isEnabled = r.data!['charisma_status'] == true;
+        // Remember an owner's OFF per room, so the automatic turn-on on
+        // entry (see onEnterRoomSuccess) respects it; ON clears it.
+        CharismaPrefs.setTurnedOff(event.roomId, !isEnabled);
 
         // Reflect the toggle in the in-room UI immediately for the acting user,
         // mirroring what the RTM startCharisma/closeCharisma handlers do for
@@ -140,6 +145,9 @@ class CharismaBloc extends Bloc<CharismaEvent, CharismaState> {
   Future<void> initialCharisma(
       InitCharismaEvent event, Emitter<CharismaState> emit) async {
     emit(state.copyWith(data: null));
+    // A toggle / reset / charisma-off clears the server store, so the saved
+    // copy is stale too.
+    CharismaCache.clear();
   }
 
   /// Writes the authoritative server totals into the render state. Each entry's
@@ -168,6 +176,7 @@ class CharismaBloc extends Bloc<CharismaEvent, CharismaState> {
       data: temp,
       reqStateExtraData: RequestState.loaded,
     ));
+    CharismaCache.save(temp);
   }
 
   /// See [AccumulateCharismaFromGiftEvent] — adds the per-gift value onto
@@ -222,5 +231,97 @@ class CharismaBloc extends Bloc<CharismaEvent, CharismaState> {
     } catch (e) {
       debugPrint('[CharismaLevels] Failed to fetch: $e');
     }
+  }
+}
+
+/// This phone's copy of every seat's charisma total, per room.
+///
+/// The server only sends the owner's total on entry (`microphones` is empty
+/// with the UTD seats), so everyone else showed 0 after leaving and coming
+/// back. Every total this phone sees is saved here and shown again on
+/// re-entry until a newer server value replaces it. A reset is detected when
+/// the server's owner total is below the saved one.
+class CharismaCache {
+  /// Room the totals belong to (set when entering a room).
+  static String? roomId;
+
+  static const Duration _maxAge = Duration(days: 3);
+
+  static String _key(String id) => 'charisma_cache_$id';
+
+  static Future<void> save(List<CharismaModel> data) async {
+    final id = roomId;
+    if (id == null || id.isEmpty) return;
+    try {
+      final totals = <String, int>{
+        for (final e in data)
+          if (e.userId > 0 && e.totalValue > 0) '${e.userId}': e.totalValue,
+      };
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _key(id),
+        jsonEncode({'t': DateTime.now().millisecondsSinceEpoch, 'd': totals}),
+      );
+    } catch (_) {}
+  }
+
+  static Future<Map<int, int>> load(String id) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final raw = prefs.getString(_key(id));
+      if (raw == null) return const {};
+      final json = jsonDecode(raw) as Map<String, dynamic>;
+      final savedAt = int.tryParse('${json['t'] ?? 0}') ?? 0;
+      final age = DateTime.now().millisecondsSinceEpoch - savedAt;
+      if (age > _maxAge.inMilliseconds) {
+        await prefs.remove(_key(id));
+        return const {};
+      }
+      final d = json['d'];
+      if (d is! Map) return const {};
+      return {
+        for (final e in d.entries)
+          if ((int.tryParse('${e.key}') ?? 0) > 0)
+            int.parse('${e.key}'): int.tryParse('${e.value}') ?? 0,
+      };
+    } catch (_) {
+      return const {};
+    }
+  }
+
+  static Future<void> clear([String? id]) async {
+    final key = id ?? roomId;
+    if (key == null || key.isEmpty) return;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_key(key));
+    } catch (_) {}
+  }
+}
+
+/// Remembers, per room, that the owner switched charisma OFF. Charisma is on
+/// by default: the owner's entry turns it on unless this says they turned
+/// it off themselves.
+class CharismaPrefs {
+  static String _key(String roomId) => 'charisma_off_$roomId';
+
+  static Future<bool> isTurnedOff(String roomId) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_key(roomId)) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Future<void> setTurnedOff(String roomId, bool off) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (off) {
+        await prefs.setBool(_key(roomId), true);
+      } else {
+        await prefs.remove(_key(roomId));
+      }
+    } catch (_) {}
   }
 }

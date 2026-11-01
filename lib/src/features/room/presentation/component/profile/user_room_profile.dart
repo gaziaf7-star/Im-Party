@@ -1,7 +1,6 @@
 import 'package:general/src/core/index.dart';
 import 'package:general/src/features/room/data/model/user_in_room_model.dart';
 import 'package:general/src/features/room/presentation/component/profile/new_profile_body.dart';
-import 'package:general/src/features/room/presentation/component/profile/profile_body.dart';
 import 'package:general/src/features/room/room.dart';
 
 class UserRoomProfile extends StatefulWidget {
@@ -134,18 +133,14 @@ class _UserRoomProfileState extends State<UserRoomProfile> {
   Widget _buildProfileBody(UserInRoomModel userData) {
     final myId = MyDataModel.getInstance().id;
     final isMyProfile = myId != null && myId.toString() == widget.userId;
-    return ConstantsManager.isTheme1
-        ? NewProfileBody(
-            roomData: widget.roomData,
-            userData: userData,
-            userId: widget.userId,
-            isMyProfile: isMyProfile,
-          )
-        : ProfileBody(
-            roomData: widget.roomData,
-            userData: userData,
-            userId: widget.userId,
-            isMyProfile: isMyProfile,
-          );
+    // Every theme uses the redesigned sheet (CP pair, Gift Sender Top3,
+    // agency, family, badges, medals, round action buttons). The older
+    // [ProfileBody] is kept in the codebase but no longer shown.
+    return NewProfileBody(
+      roomData: widget.roomData,
+      userData: userData,
+      userId: widget.userId,
+      isMyProfile: isMyProfile,
+    );
   }
 }

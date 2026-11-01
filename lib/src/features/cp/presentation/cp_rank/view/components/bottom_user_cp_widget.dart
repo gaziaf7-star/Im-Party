@@ -50,10 +50,22 @@ class BottomUserCpWidget extends StatelessWidget {
                   ),
                 ],
               ),
-              Image.asset(
-                AssetsManager.cpLoveAvatar,
-                height: 35.h,
-                width: 35.w,
+              // Drawn, not an asset: cp_love_avatar.png isn't bundled.
+              Container(
+                height: 30.h,
+                width: 30.h,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF7EB3), Color(0xFFE8527F)],
+                  ),
+                  border: Border.all(color: Colors.white, width: 1.5),
+                ),
+                child: Icon(
+                  Icons.favorite_rounded,
+                  color: Colors.white,
+                  size: 17.h,
+                ),
               ),
             ],
           ),
@@ -65,7 +77,7 @@ class BottomUserCpWidget extends StatelessWidget {
                 userId: userEntity?.id.toString(),
               );
             },
-            width: 111.w,
+            width: 111,
             paddingButton: context.paddingZero(),
             title: TextWidget(
               StringManager.bindCp.tr(),

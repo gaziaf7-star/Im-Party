@@ -8,8 +8,12 @@ import 'package:general/src/features/cp/presentation/cp_store/bloc/cp_profile_bl
 import 'package:general/src/features/profile/presentation/profile/bloc/bloc_user_badges/get_user_badges_bloc.dart';
 import 'package:general/src/features/profile/presentation/profile/bloc/bloc_user_badges/get_user_badges_state.dart';
 import 'package:general/src/features/profile/presentation/profile/bloc/bloc_badge/user_badges_bloc.dart';
+import 'package:general/src/features/profile/presentation/profile/bloc/bloc_my_level/get_my_level_bloc.dart';
+import 'package:general/src/features/profile/presentation/profile/bloc/bloc_my_level/get_my_level_event.dart';
+import 'package:general/src/features/profile/presentation/profile/bloc/bloc_my_level/get_my_level_state.dart';
 import 'package:general/src/features/profile/presentation/profile/view/page/user_profile/widget/user_images_carousel.dart';
 import 'package:general/src/features/theme2_app/user_profile/presentation/widgets/theme2_live_badge.dart';
+import 'package:general/src/features/theme2_app/user_profile/presentation/widgets/profile_entry_effect.dart';
 import 'package:general/src/core/widgets/gender_widget.dart';
 import 'package:general/src/core/widgets/level_container.dart';
 import 'package:general/src/core/widgets/vip_container.dart';
@@ -190,6 +194,19 @@ class Theme2VisitorProfileHeader extends StatelessWidget {
           ),
         ),
 
+        // The visited user's active entry, played once on opening the
+        // profile, with their picture and name inside it.
+        Positioned.fill(child: ProfileEntryEffect(user: user)),
+
+        // Live badge on the right screen edge, level with the avatar: tap
+        // to enter the room this user is in.
+        if (_inRoom(user))
+          Positioned(
+            right: 0,
+            top: avatarTop - 4.h,
+            child: Theme2LiveBadge(nowRoom: user!.nowRoom!),
+          ),
+
         // Avatar (+ CP partner), top-left.
         Positioned(
           top: avatarTop,
@@ -332,15 +349,6 @@ class Theme2VisitorProfileHeader extends StatelessWidget {
                       ],
                     ],
                   ),
-                  if (_inRoom(user))
-                    Positioned(
-                      // Bigger Live badge sits on the avatar's top-right edge.
-                      // Keep it anchored to the main profile avatar (not the CP
-                      // partner) so its position is stable for every profile.
-                      top: -10.h,
-                      left: 58.w,
-                      child: Theme2LiveBadge(nowRoom: user!.nowRoom!),
-                    ),
                 ],
               );
             },
@@ -661,6 +669,8 @@ class Theme2VisitorProfileHeader extends StatelessWidget {
                     ),
                     12.hBox,
                     _StatsTextRow(user: user, isMyProfile: isMyProfile),
+                    10.hBox,
+                    _CoinsSummaryRow(user: user, isMyProfile: isMyProfile),
                   ],
                 ),
               ),
@@ -899,6 +909,126 @@ class _StatsTextRow extends StatelessWidget {
           ),
         ],
       ],
+    );
+  }
+}
+
+/// Total coins this user received and sent in gifts, under the stats row.
+/// Values come from the profile's `level` block (`total_received_coins` /
+/// `total_sent_coins`). On the user's own profile it falls back to the level
+/// API (`users/level`); until the backend sends these fields it shows 0.
+class _CoinsSummaryRow extends StatefulWidget {
+  final UserEntity? user;
+  final bool isMyProfile;
+
+  const _CoinsSummaryRow({required this.user, required this.isMyProfile});
+
+  @override
+  State<_CoinsSummaryRow> createState() => _CoinsSummaryRowState();
+}
+
+class _CoinsSummaryRowState extends State<_CoinsSummaryRow> {
+  bool get _needsLevelApi =>
+      widget.isMyProfile &&
+      (widget.user?.level?.totalSent ?? '').trim().isEmpty;
+
+  @override
+  void initState() {
+    super.initState();
+    final bloc = di<GetMyLevelBloc>();
+    if (_needsLevelApi && !bloc.state.myLevelState.isLoaded) {
+      bloc.add(const GetMyLevelData());
+    }
+  }
+
+  static String _format(String? raw) {
+    final value = num.tryParse((raw ?? '').replaceAll(',', '').trim()) ?? 0;
+    if (value >= 1e9) return '${_trim(value / 1e9)}B';
+    if (value >= 1e6) return '${_trim(value / 1e6)}M';
+    if (value >= 1e3) return '${_trim(value / 1e3)}K';
+    return value.toInt().toString();
+  }
+
+  static String _trim(num v) {
+    final s = v.toStringAsFixed(2);
+    return s.replaceFirst(RegExp(r'\.?0+$'), '');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final user = widget.user;
+    return BlocBuilder<GetMyLevelBloc, GetMyLevelState>(
+      bloc: di<GetMyLevelBloc>(),
+      buildWhen: (p, c) => p.myLevel != c.myLevel,
+      builder: (context, levelState) {
+        final sent = _needsLevelApi
+            ? levelState.myLevel?.totalSent
+            : user?.level?.totalSent;
+        var received = user?.level?.totalReceived;
+        if ((received ?? '').trim().isEmpty && widget.isMyProfile) {
+          received = levelState.myLevel?.totalReceived;
+        }
+        return Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _chip(
+              context,
+              icon: Icons.south_west_rounded,
+              label: 'Received',
+              value: _format(received),
+            ),
+            10.wBox,
+            _chip(
+              context,
+              icon: Icons.north_east_rounded,
+              label: 'Sent',
+              value: _format(sent),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _chip(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required String value,
+  }) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 12.w, vertical: 6.h),
+      decoration: BoxDecoration(
+        color: Colors.black.withValues(alpha: 0.28),
+        borderRadius: BorderRadius.circular(20.r),
+        border: Border.all(color: ColorManager.white.withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Image.asset(AssetsManager.coin, width: 16.w, height: 16.w),
+          6.wBox,
+          Text(
+            value,
+            style: TextStyle(
+              color: ColorManager.white,
+              fontSize: 14.sp,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          5.wBox,
+          Icon(icon, size: 13.sp, color: ColorManager.white.withValues(alpha: 0.8)),
+          2.wBox,
+          Text(
+            label,
+            style: TextStyle(
+              color: ColorManager.white.withValues(alpha: 0.8),
+              fontSize: 12.sp,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

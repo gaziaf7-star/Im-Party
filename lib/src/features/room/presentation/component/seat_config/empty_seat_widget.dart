@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'package:general/src/features/room/presentation/component/seat_config/charisma_badge_widget.dart';
 import 'package:general/src/core/index.dart';
 import 'package:general/src/features/room/presentation/component/seat_config/seat_metrics.dart';
+import 'package:general/src/features/room/presentation/component/seat_config/seat_mute_badge.dart';
 import 'package:general/src/features/room/room.dart';
 
 class EmptySeat extends StatelessWidget {
@@ -20,11 +22,7 @@ class EmptySeat extends StatelessWidget {
   /// background disc/container behind it (the seat icon art stands on its
   /// own now, on request).
   Widget _emptyDisc(SeatMetrics m, Widget glyph) {
-    return SizedBox(
-      width: m.avatar,
-      height: m.avatar,
-      child: glyph,
-    );
+    return SizedBox(width: m.avatar, height: m.avatar, child: glyph);
   }
 
   @override
@@ -44,34 +42,44 @@ class EmptySeat extends StatelessWidget {
                   child: SizedBox(
                     width: m.avatar,
                     height: m.avatar,
-                    child:
-                    (PkController.isPK.value &&
-                        PkController.isTeam1Seat(index))
-                        ? Image.asset(
-                      AssetsManager.team1,
-                      fit: BoxFit.contain,
-                    )
-                        : (PkController.isPK.value &&
-                        PkController.isTeam2Seat(index))
-                        ? Image.asset(
-                      AssetsManager.team2,
-                      fit: BoxFit.contain,
-                    )
-                        : _emptyDisc(
-                      m,
-                      // The generated sofa is already coloured to match
-                      // the ring; tinting it would flatten it back to
-                      // the grey vendor glyph this replaced.
-                      Image.asset(
-                        AssetsManager.seatSofa,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => Image.asset(
-                          AssetsManager.seat,
-                          color: ColorManager.onDark
-                              .withValues(alpha: 0.55),
-                          fit: BoxFit.contain,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.center,
+                      children: [
+                        Positioned.fill(
+                          child:
+                              (PkController.isPK.value &&
+                                      PkController.isTeam1Seat(index))
+                                  ? Image.asset(
+                                    AssetsManager.team1,
+                                    fit: BoxFit.contain,
+                                  )
+                                  : (PkController.isPK.value &&
+                                      PkController.isTeam2Seat(index))
+                                  ? Image.asset(
+                                    AssetsManager.team2,
+                                    fit: BoxFit.contain,
+                                  )
+                                  : _emptyDisc(
+                                    m,
+                                    // The generated sofa is already coloured to match
+                                    // the ring; tinting it would flatten it back to
+                                    // the grey vendor glyph this replaced.
+                                    Image.asset(
+                                      AssetsManager.seatSofa,
+                                      fit: BoxFit.contain,
+                                      errorBuilder:
+                                          (_, __, ___) => Image.asset(
+                                            AssetsManager.seat,
+                                            color: ColorManager.onDark
+                                                .withValues(alpha: 0.55),
+                                            fit: BoxFit.contain,
+                                          ),
+                                    ),
+                                  ),
                         ),
-                      ),
+                        AllMuteSeatBadge(avatarSize: m.avatar),
+                      ],
                     ),
                   ),
                 ),
@@ -93,25 +101,36 @@ class EmptySeat extends StatelessWidget {
                     // A room-specific seat skin, when the owner has set one,
                     // still wins: it is chosen art and must not be covered by
                     // the default ring.
-                    child: Methods.getMicImageOpen() != null
-                        ? ClipOval(
-                      child: Image.file(
-                        File(Methods.getMicImageOpen() ?? ''),
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                        : _emptyDisc(
-                      m,
-                      Image.asset(
-                        AssetsManager.seatSofa,
-                        fit: BoxFit.contain,
-                        errorBuilder: (_, __, ___) => Image.asset(
-                          AssetsManager.seat,
-                          color: ColorManager.onDark
-                              .withValues(alpha: 0.55),
-                          fit: BoxFit.contain,
+                    child: Stack(
+                      clipBehavior: Clip.none,
+                      alignment: Alignment.center,
+                      children: [
+                        Positioned.fill(
+                          child:
+                              Methods.getMicImageOpen() != null
+                                  ? ClipOval(
+                                    child: Image.file(
+                                      File(Methods.getMicImageOpen() ?? ''),
+                                      fit: BoxFit.cover,
+                                    ),
+                                  )
+                                  : _emptyDisc(
+                                    m,
+                                    Image.asset(
+                                      AssetsManager.seatSofa,
+                                      fit: BoxFit.contain,
+                                      errorBuilder:
+                                          (_, __, ___) => Image.asset(
+                                            AssetsManager.seat,
+                                            color: ColorManager.onDark
+                                                .withValues(alpha: 0.55),
+                                            fit: BoxFit.contain,
+                                          ),
+                                    ),
+                                  ),
                         ),
-                      ),
+                        AllMuteSeatBadge(avatarSize: m.avatar),
+                      ],
                     ),
                   ),
                 ),
@@ -141,13 +160,24 @@ class _SeatFooter extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      "${index + 1}",
-      textAlign: TextAlign.center,
-      style: context.bodyMedium
-          .copyWith(fontSize: metrics.indexFont)
-          .w400
-          .colorExt(ColorManager.onDark),
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          "${index + 1}",
+          textAlign: TextAlign.center,
+          style: context.bodyMedium
+              .copyWith(fontSize: metrics.indexFont)
+              .w400
+              .colorExt(ColorManager.onDark),
+        ),
+        // Same line as occupied seats, so all seats keep one height.
+        CharismaValueLine(
+          userId: '',
+          fontSize: metrics.charismaFont,
+          iconSize: metrics.charismaIcon,
+        ),
+      ],
     );
   }
 }

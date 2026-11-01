@@ -1,4 +1,5 @@
 import 'package:general/src/core/index.dart';
+import 'package:general/src/features/cp/presentation/intimate_space/intimate_space_page.dart';
 
 import 'package:general/src/features/home/presentation/home/bloc/fetch_my_room_data_manager/fetch_my_room_data_bloc.dart';
 import 'package:general/src/features/profile/presentation/coin_seller/view/coin_seller_screen.dart';
@@ -137,8 +138,22 @@ class ThirdCardBody extends StatelessWidget {
             image: 'assets/icons/coupleICon.png',
             gradientColors: _kTileGradient,
             size: 32,
-            title: StringManager.cP.tr(),
-            onTap: () => Navigator.pushNamed(context, Routes.cpPage),
+            // Opens the Intimate Space page (CP / Best Friend / Sister /
+            // Brother). The old CP page stays reachable from inside the app.
+            title: 'Relation',
+            onTap: () {
+              final me = MyDataModel.getInstance();
+              IntimateSpacePage.open(
+                context,
+                IntimateSpaceArgs(
+                  userId: me.id?.toString() ?? '',
+                  name: me.name ?? '',
+                  image: me.profile?.image ?? '',
+                  uuid: me.uuid ?? me.id?.toString() ?? '',
+                  isMine: true,
+                ),
+              );
+            },
           ),
           // Role-based external dashboards, on request — only shown to a
           // user who actually has that role, opened in-app via a plain

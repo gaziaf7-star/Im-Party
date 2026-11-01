@@ -1,6 +1,8 @@
 import 'dart:io';
+import 'package:general/src/features/room/presentation/component/seat_config/charisma_badge_widget.dart';
 import 'package:general/src/core/index.dart';
 import 'package:general/src/features/room/presentation/component/seat_config/seat_metrics.dart';
+import 'package:general/src/features/room/presentation/component/seat_config/seat_mute_badge.dart';
 
 class LockedSeatWidget extends StatelessWidget {
   final int index;
@@ -28,16 +30,26 @@ class LockedSeatWidget extends StatelessWidget {
             child: SizedBox(
               width: m.avatar,
               height: m.avatar,
-              child: Methods.getMicImageClose() != null
-                  ? ClipOval(
-                child: Image.file(
-                  File(Methods.getMicImageClose() ?? ''),
-                  fit: BoxFit.cover,
-                ),
-              )
-                  : Image.asset(
-                AssetsManager.lockSeat,
-                fit: BoxFit.contain,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  Positioned.fill(
+                    child:
+                        Methods.getMicImageClose() != null
+                            ? ClipOval(
+                              child: Image.file(
+                                File(Methods.getMicImageClose() ?? ''),
+                                fit: BoxFit.cover,
+                              ),
+                            )
+                            : Image.asset(
+                              AssetsManager.lockSeat,
+                              fit: BoxFit.contain,
+                            ),
+                  ),
+                  AllMuteSeatBadge(avatarSize: m.avatar),
+                ],
               ),
             ),
           ),
@@ -49,6 +61,12 @@ class LockedSeatWidget extends StatelessWidget {
               .copyWith(fontSize: m.indexFont)
               .w400
               .colorExt(ColorManager.white),
+        ),
+        // Same line as occupied seats, so all seats keep one height.
+        CharismaValueLine(
+          userId: '',
+          fontSize: m.charismaFont,
+          iconSize: m.charismaIcon,
         ),
       ],
     );

@@ -1,4 +1,6 @@
+import 'package:general/src/features/room/presentation/music/bloc/music_room_bloc.dart';
 import 'package:general/src/features/room/presentation/room_controller.dart';
+import 'package:general/src/features/room/presentation/youtube/bloc/youtube/youtube_bloc.dart';
 import '../../../../../core/index.dart';
 
 class SpeakerButton extends StatelessWidget {
@@ -15,6 +17,11 @@ class SpeakerButton extends StatelessWidget {
         return GestureDetector(
           onTap: () {
             controller.mediaController.muteAllRemoteAudio(!isMuted);
+            // Room music is played locally on each phone, so sound-off must
+            // silence that player too, not just the room's voices.
+            di<MusicRoomBloc>().applyRoomSoundMute();
+            // Same for a YouTube video playing in the room.
+            di<YoutubeBloc>().applyRoomSoundMute();
           },
           child: ConstantsManager.isTheme1
               ? Image.asset(

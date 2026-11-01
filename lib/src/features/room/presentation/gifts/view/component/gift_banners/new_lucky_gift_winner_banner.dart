@@ -213,7 +213,12 @@ class _NewLuckyGiftWinnerBannerState extends State<NewLuckyGiftWinnerBanner>
       return isArabic ? AssetsManager.arBanner1000 : AssetsManager.enBanner1000;
     } else if (gNum >= 500) {
       return isArabic ? AssetsManager.arBanner500 : AssetsManager.enBanner500;
+    } else if (gNum >= 250) {
+      return isArabic ? AssetsManager.arBanner250 : AssetsManager.enBanner250;
+    } else if (gNum >= 100) {
+      // Green banners for the smaller wins (as in im_Chat).
+      return isArabic ? AssetsManager.arBanner100 : AssetsManager.enBanner100;
     }
-    return isArabic ? AssetsManager.arBanner250 : AssetsManager.enBanner250;
+    return isArabic ? AssetsManager.arBanner50 : AssetsManager.enBanner50;
   }
 }

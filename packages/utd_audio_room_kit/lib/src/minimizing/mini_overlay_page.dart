@@ -252,6 +252,12 @@ class _UTDMiniOverlayPageState extends State<UTDMiniOverlayPage>
                     decoration: BoxDecoration(
                       color: Colors.black.withValues(alpha: 0.88),
                       borderRadius: BorderRadius.circular(borderRadius),
+                      border: config?.ringColor == null
+                          ? null
+                          : Border.all(
+                              color: config!.ringColor!,
+                              width: config.ringWidth,
+                            ),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withValues(alpha: 0.4),
@@ -274,8 +280,35 @@ class _UTDMiniOverlayPageState extends State<UTDMiniOverlayPage>
                               ),
                             ),
                           Container(
-                            color: Colors.black.withValues(alpha: 0.35),
+                            color: Colors.black.withValues(
+                                alpha: config?.imageDimOpacity ?? 0.35),
                           ),
+                          if (config?.ringColor != null &&
+                              (config?.showCloseCorner ?? false))
+                            Positioned(
+                              top: 0,
+                              right: 0,
+                              child: GestureDetector(
+                                onTap: _onClose,
+                                child: Container(
+                                  width: _overlaySize.width * 0.42,
+                                  height: _overlaySize.width * 0.42,
+                                  decoration: BoxDecoration(
+                                    color: config!.ringColor,
+                                    borderRadius: BorderRadius.only(
+                                      bottomLeft: Radius.circular(
+                                          _overlaySize.width * 0.42),
+                                    ),
+                                  ),
+                                  alignment: const Alignment(0.35, -0.35),
+                                  child: const Icon(
+                                    Icons.close_rounded,
+                                    color: Colors.white,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                            ),
                           if (showLeave)
                             Positioned(
                               top: 6,

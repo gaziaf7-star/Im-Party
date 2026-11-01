@@ -28,13 +28,13 @@ class _ListTileBody extends StatelessWidget {
         padding: context.paddingOnly(bottom: 5.h),
         child: TextWidget(
           title!,
-          style: context.bodyLarge.bold.colorExt(ColorManager.textPrimary),
+          style: context.bodyLarge.bold.colorExt(ColorManager.momentPostTextColor),
         ),
       ),
       dense: true,
       subtitle: TextWidget(
         subtitle!,
-        style: context.bodyLarge.w400.colorExt(ColorManager.textPrimary),
+        style: context.bodyLarge.w400.colorExt(ColorManager.momentPostTextColor),
       ),
     );
   }

@@ -13,6 +13,7 @@ class CreateFamilyIntro extends StatelessWidget {
     return Container(
       width: ScreenUtil().screenWidth,
       decoration: BoxDecoration(
+          color: Colors.white,
           image: DecorationImage(
               alignment: Alignment.topCenter,
               fit: BoxFit.contain,

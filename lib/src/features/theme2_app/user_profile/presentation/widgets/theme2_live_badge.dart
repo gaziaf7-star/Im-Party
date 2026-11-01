@@ -21,20 +21,11 @@ class Theme2LiveBadge extends StatefulWidget {
 
 class _Theme2LiveBadgeState extends State<Theme2LiveBadge>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-  late final Animation<double> _scale;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
-    _scale = Tween<double>(begin: 0.97, end: 1.05).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
-    );
-  }
+  /// Drives the three "audio" bars (same feel as the room's speaking bars).
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat();
 
   @override
   void dispose() {
@@ -65,58 +56,59 @@ class _Theme2LiveBadgeState extends State<Theme2LiveBadge>
     );
   }
 
+  /// Bar height 0..1 for bar [i]: each bar bounces on its own phase.
+  double _bar(int i) {
+    final t = (_controller.value + i * 0.27) % 1.0;
+    final tri = t < .5 ? t * 2 : (1 - t) * 2;
+    return .35 + .65 * Curves.easeInOut.transform(tri);
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Tab hugging the right screen edge (rounded on the left only), orange to
+    // red, with bouncing audio bars -- tap to enter the room they are in.
+    final barW = 4.w, barMax = 16.h;
     return GestureDetector(
       onTap: _enterRoom,
-      child: ScaleTransition(
-        scale: _scale,
-        child: Container(
-          padding: EdgeInsets.symmetric(horizontal: 13.w, vertical: 6.h),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [
-                Color(0xFFFF3B5C),
-                Color(0xFFE8003F),
-              ],
-            ),
-            borderRadius: BorderRadius.circular(22.r),
-            border: Border.all(
-              color: ColorManager.white.withValues(alpha: 0.92),
-              width: 1.4,
-            ),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFFE8003F).withValues(alpha: 0.38),
-                blurRadius: 12.r,
-                spreadRadius: 1.5.r,
-                offset: Offset(0, 3.h),
-              ),
-            ],
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        height: 46.h,
+        padding: EdgeInsets.fromLTRB(16.w, 0, 18.w, 0),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            begin: Alignment.centerLeft,
+            end: Alignment.centerRight,
+            colors: [Color(0xFFFF7A45), Color(0xFFFF3D5E)],
           ),
-          child: Row(
+          borderRadius: BorderRadius.horizontal(left: Radius.circular(23.r)),
+          boxShadow: [
+            BoxShadow(
+              color: const Color(0xFFFF3D5E).withValues(alpha: .35),
+              blurRadius: 10.r,
+              offset: Offset(0, 3.h),
+            ),
+          ],
+        ),
+        child: AnimatedBuilder(
+          animation: _controller,
+          builder: (context, _) => Row(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              Container(
-                width: 8.r,
-                height: 8.r,
-                decoration: const BoxDecoration(
-                  color: ColorManager.white,
-                  shape: BoxShape.circle,
+              for (var i = 0; i < 3; i++) ...[
+                if (i > 0) SizedBox(width: 3.w),
+                Padding(
+                  padding: EdgeInsets.only(bottom: 15.h),
+                  child: Container(
+                    width: barW,
+                    height: barMax * _bar(i),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(barW),
+                    ),
+                  ),
                 ),
-              ),
-              6.wBox,
-              Text(
-                StringManager.liveTrackBadge.tr(),
-                style: TextStyle(
-                  color: ColorManager.onDark,
-                  fontSize: 13.sp,
-                  fontWeight: FontWeight.w800,
-                  letterSpacing: 0.2,
-                ),
-              ),
+              ],
             ],
           ),
         ),

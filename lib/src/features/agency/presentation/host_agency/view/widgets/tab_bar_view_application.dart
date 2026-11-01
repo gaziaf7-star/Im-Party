@@ -47,10 +47,9 @@ class _TabBarViewApplicationState extends State<TabBarViewApplication> {
               physics: const AlwaysScrollableScrollPhysics(),
               child: Padding(
                 padding: context.paddingSymmetric(horizontal: 10),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: AgencyStaggerColumn(
                   children: [
-                    10.hBox,
+                    12.hBox,
                     CustomRowWidget(
                       title: StringManager.officeAdmin.tr(),
                       iconName: AssetsManager.identitySetting2,
@@ -80,7 +79,7 @@ class _TabBarViewApplicationState extends State<TabBarViewApplication> {
                                 ? Color((int.parse(state
                                     .data!.owner!.coloredName!
                                     .replaceAll('#', '0xff'))))
-                                : ColorManager.textPrimary,
+                                : AgencyUI.ink,
                             mainAxisAlignment: MainAxisAlignment.center,
                             textAlign: TextAlign.center,
                             textStyle:
@@ -89,7 +88,7 @@ class _TabBarViewApplicationState extends State<TabBarViewApplication> {
                                           ? Color((int.parse(state
                                               .data!.owner!.coloredName!
                                               .replaceAll('#', '0xff'))))
-                                          : ColorManager.textPrimary,
+                                          : AgencyUI.ink,
                                     ),
                           ),
                         ],
@@ -221,8 +220,7 @@ class _TabBarViewApplicationState extends State<TabBarViewApplication> {
                               ),
                             );
                           },
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: AgencyStaggerColumn(
                             children: [
                               CustomRowWidget(
                                 title: StringManager.agencyHeros.tr(),
@@ -264,7 +262,7 @@ class _TabBarViewApplicationState extends State<TabBarViewApplication> {
                                 10.hBox,
                                 TextWidget(
                                   StringManager.agencyMounthlyData.tr(),
-                                  style: context.bodyLarge.w500.size(13),
+                                  style: AgencyUI.title(context),
                                 ),
                                 10.hBox,
                                 Row(
@@ -283,7 +281,7 @@ class _TabBarViewApplicationState extends State<TabBarViewApplication> {
                                       icon: AssetsManager.moneyBag,
                                       scale: 14,
                                     ),
-                                    20.wBox,
+                                    12.wBox,
                                     MonthlyDataItemWidget(
                                       value: Methods()
                                           .convertToAbbreviatedString(state

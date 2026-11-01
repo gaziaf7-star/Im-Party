@@ -47,11 +47,12 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       extendBodyBehindAppBar: true,
       appBar: AppBarWidget(
-        backgroundColor: ColorManager.scaffoldBg,
+        backgroundColor: Colors.white,
         title: StringManager.withdrawal.tr(),
-        titleStyle: context.bodyLarge.w600.colorExt(ColorManager.textPrimary),
+        titleStyle: context.bodyLarge.w600.colorExt(ColorManager.momentPostTextColor),
         actions: [
           TextButton(
             onPressed: () {
@@ -63,7 +64,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
               style: context.bodyMedium
                   .size(12)
                   .w600
-                  .colorExt(ColorManager.textPrimary),
+                  .colorExt(ColorManager.momentPostTextColor),
             ),
           ),
         ],
@@ -85,7 +86,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
         child: SingleChildScrollView(
           physics: const AlwaysScrollableScrollPhysics(),
           child: Container(
-            color: ColorManager.scaffoldBgAlt,
+            color: Colors.white,
             padding: context.paddingSymmetric(horizontal: 20),
             height: ScreenUtil().screenHeight,
             width: ScreenUtil().screenWidth,
@@ -99,9 +100,20 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                     width: ScreenUtil().screenWidth,
                     margin:
                         context.paddingSymmetric(horizontal: 10, vertical: 30),
-                    padding: context.paddingSymmetric(vertical: 10),
-                    decoration:
-                        const BoxDecoration(color: ColorManager.transparent),
+                    padding: context.paddingSymmetric(vertical: 22),
+                    // Balance card: soft brand tint, rounded, hairline border.
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(18.r),
+                      border: Border.all(color: const Color(0xFFEDEEF2)),
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [
+                          ColorManager.primary.withValues(alpha: .12),
+                          ColorManager.primary.withValues(alpha: .03),
+                        ],
+                      ),
+                    ),
                     child: Column(
                       children: [
                         BlocBuilder<MyStoreBloc, MyStoreState>(
@@ -117,7 +129,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                               style: context.bodyMedium
                                   .size(30)
                                   .w700
-                                  .colorExt(ColorManager.textPrimary),
+                                  .colorExt(ColorManager.momentPostTextColor),
                             );
                           },
                         ),
@@ -126,7 +138,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                           style: context.bodyMedium
                               .size(14)
                               .w700
-                              .colorExt(ColorManager.textPrimary),
+                              .colorExt(ColorManager.momentPostTextColor),
                         ),
                       ],
                     ),
@@ -137,7 +149,7 @@ class _WithdrawScreenState extends State<WithdrawScreen> {
                   StringManager.userType_,
                   style: TextStyle(
                     fontSize: 15.sp,
-                    color: ColorManager.textPrimary,
+                    color: ColorManager.momentPostTextColor,
                   ),
                 ),
                 5.hBox,

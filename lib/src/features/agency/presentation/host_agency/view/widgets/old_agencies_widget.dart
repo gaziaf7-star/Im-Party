@@ -48,7 +48,7 @@ class _OldAgenciesWidgetState extends State<OldAgenciesWidget> {
                      style: context.bodySmall
                          .size(9)
                          .w500
-                         .colorExt(ColorManager.textPrimary));
+                         .colorExt(ColorManager.momentPostTextColor));
                 },
               ),
               const Icon(
@@ -111,7 +111,7 @@ class _OldAgenciesWidgetState extends State<OldAgenciesWidget> {
           child: TextWidget(
             StringManager.cancel.tr(),
             style:
-            context.bodyMedium.size(15).colorExt(ColorManager.textPrimary),
+            context.bodyMedium.size(15).colorExt(ColorManager.momentPostTextColor),
           ),
         ),
         TextButton(

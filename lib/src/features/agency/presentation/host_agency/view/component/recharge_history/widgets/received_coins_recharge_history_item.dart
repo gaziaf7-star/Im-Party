@@ -41,7 +41,7 @@ class ReceivedCoinsRechargeHistoryItem extends StatelessWidget {
                     dateTime: uerChargeCoinsHistoryModel.time ?? ''),
                 style: context.bodyMedium.w400
                     .size(12)
-                    .colorExt(ColorManager.secondaryText),
+                    .colorExt(ColorManager.grey),
               ),
             ],
           ),

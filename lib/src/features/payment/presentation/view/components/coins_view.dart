@@ -1,8 +1,7 @@
-import 'package:general/src/core/widgets/bottom_dialog.dart';
-import 'package:general/src/features/agency/presentation/charge_agency/view/component/host_withdrawel_screen/view/host_withdrawel_screen.dart';
-import 'package:general/src/features/auth/presentation/splash/config_app/config_app_bloc.dart';
 import 'package:general/src/features/payment/presentation/bloc/fetch_coins/fetch_coins_event.dart';
 import 'package:general/src/features/payment/presentation/view/in_app_purchases.dart';
+import 'package:general/src/features/payment/presentation/view/manual_recharge/manual_recharge_page.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:general/src/features/profile/presentation/coins/bloc/my_store_bloc/my_store_bloc.dart';
 import 'package:skeletonizer/skeletonizer.dart';
 
@@ -11,6 +10,7 @@ import '../../bloc/buy_coins_bloc/buy_coins_bloc.dart';
 import '../../bloc/buy_coins_bloc/buy_coins_event.dart';
 import '../../bloc/fetch_coins/fetch_coins_bloc.dart';
 import '../../bloc/fetch_coins/fetch_coins_state.dart';
+import '../../../domain/entities/coins_entity.dart';
 
 class CoinsView extends StatefulWidget {
   const CoinsView({super.key});
@@ -20,107 +20,408 @@ class CoinsView extends StatefulWidget {
 }
 
 class _CoinsViewState extends State<CoinsView> {
-  @override
-  Widget build(BuildContext context) {
-    return BlocBuilder<FetchCoinsBloc, FetchCoinsState>(
-      bloc: di<FetchCoinsBloc>(),
-      buildWhen: (prev, curr) =>
-      prev.reqState != curr.reqState || prev.data != curr.data,
-      builder: (context, state) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+  /// Gateways whose package grid is open (the first one by default).
+  final Set<int> _open = {0};
+
+  /// Selected package: (gateway index, package index).
+  (int, int)? _selected;
+
+  static String _price(double usd) =>
+      usd % 1 == 0 ? usd.toInt().toString() : usd.toString();
+
+  /// Same purchase flow as before: Google Play billing for google_pay,
+  /// otherwise the server-side BuyCoinsEvent.
+  void _buy(FetchCoinsState state, int ind, CoinEntity? coin) {
+    if (state.data![ind].title == "google_pay" &&
+        di<PurchaseService>().result != null) {
+      final matches = di<PurchaseService>()
+          .result!
+          .productDetails
+          .where((element) =>
+              element.id == 'iamparty_coin_${coin?.id}' ||
+              element.id == 'coin_${coin?.id}' ||
+              element.id == coin?.id.toString());
+
+      if (matches.isEmpty) {
+        Methods.showToast(
+          context,
+          message: 'This package is not available right now',
+          isError: true,
+        );
+        return;
+      }
+      di<PurchaseService>().buyProduct(matches.first);
+    } else {
+      if (!di<BuyCoinsBloc>().state.reqState.isLoading) {
+        di<BuyCoinsBloc>().add(
+          BuyCoinsEvent(
+            context: context,
+            method: state.data?[ind].title ?? '',
+            productId: coin?.id.toString() ?? "",
+          ),
+        );
+      }
+    }
+    Methods.showToast(context, isLoading: true);
+  }
+
+  Widget _section({required Widget child}) {
+    return Container(
+      margin: EdgeInsets.only(bottom: 12.h),
+      padding: EdgeInsets.all(14.w),
+      decoration: BoxDecoration(
+        color: ColorManager.white,
+        borderRadius: BorderRadius.circular(16.r),
+      ),
+      child: child,
+    );
+  }
+
+  Widget _logoBox(Widget child) {
+    return Container(
+      width: 64.w,
+      height: 44.h,
+      padding: EdgeInsets.all(4.w),
+      decoration: BoxDecoration(
+        color: ColorManager.white,
+        borderRadius: BorderRadius.circular(6.r),
+        border: Border.all(color: const Color(0xFFE3E4E8)),
+      ),
+      child: child,
+    );
+  }
+
+  /// Manual recharge (bKash/Nagad/...), shown above every other gateway in
+  /// the same card style; opens its own step-by-step page.
+  Widget _manualRecharge() {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (_) => const ManualRechargePage()),
+      ),
+      child: _section(
+        child: Row(
           children: [
-            110.hBox,
-            Padding(
-              padding: context.paddingSymmetric(horizontal: 18),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  TextWidget(
-                    StringManager.recharge.tr(),
-                    style: context.bodyMedium.size(15).w600.colorExt(
-                        ColorManager.black),
+            _logoBox(
+              Container(
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(4.r),
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFFFF5F7E), Color(0xFFF8284D)],
                   ),
-                  InkWell(
-                    onTap: () {
-                      di<MyStoreBloc>().add(const GetMyStoreEvent());
-                      di<FetchCoinsBloc>().add(const FetchCoinsEvent());
-                    },
-                    child: Image.asset(
-                      AssetsManager.refreshIcon,
-                      scale: 2,
-                      color: ColorManager.coinsAccent,
+                ),
+                child: Icon(Icons.account_balance_wallet_rounded,
+                    color: Colors.white, size: 22.sp),
+              ),
+            ),
+            12.wBox,
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Seller',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: const Color(0xFF1C1C1E),
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                  2.hBox,
+                  Text(
+                    'bKash · Nagad · Bank transfer',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: const Color(0xFF8E8F96),
+                      fontSize: 12.sp,
                     ),
                   ),
                 ],
               ),
             ),
-            5.hBox,
-            Expanded(
-              child: ListView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: context.paddingSymmetric(horizontal: 18, vertical: 10),
-                children: [
-                  if (di<ConfigAppBloc>().state.config?.isShowChargeAgencies !=
-                      false)
-                    Container(
-                      decoration: BoxDecoration(
-                        color: ColorManager.white,
-                        borderRadius: 12.radius,
-                        border: Border.all(
-                            color: ColorManager.grey2.withValues(alpha: 0.3)),
-                        boxShadow: [
-                          BoxShadow(
-                            color: ColorManager.black.withValues(alpha: 0.05),
-                            blurRadius: 8.r,
-                            offset: Offset(0, 2.h),
-                          ),
-                        ],
+            Icon(
+              Icons.chevron_right_rounded,
+              color: const Color(0xFFB5B6BC),
+              size: 28.sp,
+            ),
+          ],
+        ),
+      ),
+    )
+        .animate()
+        .fadeIn(duration: const Duration(milliseconds: 320))
+        .slideY(begin: .08, end: 0, curve: Curves.easeOutCubic);
+  }
+
+  Widget _gateway(FetchCoinsState state, int ind) {
+    final gw = state.data![ind];
+    final coins = gw.coins ?? [];
+    final open = _open.contains(ind);
+    return _section(
+      child: Column(
+        children: [
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => setState(
+                () => open ? _open.remove(ind) : _open.add(ind)),
+            child: Row(
+              children: [
+                _logoBox(ImageViewWidget(
+                  url: gw.photo ?? '',
+                  boxFit: BoxFit.contain,
+                )),
+                12.wBox,
+                Expanded(
+                  child: Text(
+                    gw.title != null
+                        ? StringManager.getGateWay(gateway: gw.title!)
+                        : '',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      color: const Color(0xFF1C1C1E),
+                      fontSize: 18.sp,
+                      fontWeight: FontWeight.w500,
+                    ),
+                  ),
+                ),
+                Icon(
+                  open
+                      ? Icons.keyboard_arrow_up_rounded
+                      : Icons.keyboard_arrow_down_rounded,
+                  color: const Color(0xFFB5B6BC),
+                  size: 28.sp,
+                ),
+              ],
+            ),
+          ),
+          AnimatedSize(
+            duration: const Duration(milliseconds: 220),
+            curve: Curves.easeOut,
+            alignment: Alignment.topCenter,
+            child: !open
+                ? const SizedBox(width: double.infinity)
+                : Padding(
+                    padding: EdgeInsets.only(top: 14.h),
+                    child: GridView.builder(
+                      shrinkWrap: true,
+                      padding: EdgeInsets.zero,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: coins.length,
+                      gridDelegate:
+                          SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 3,
+                        mainAxisSpacing: 10.h,
+                        crossAxisSpacing: 10.w,
+                        childAspectRatio: 1.32,
                       ),
-                      margin: context.paddingSymmetric(vertical: 5),
-                      padding:
-                      context.paddingSymmetric(vertical: 8, horizontal: 18),
-                      child: GestureDetector(
-                        onTap: () {
-                          bottomDailog(
-                            context: context,
-                            widget: const HostWithdrawelScreen(
-                              param: CoinsScreenParam(
-                                stopTransferButton: true,
-                                isFromCoinsScreen: true,
-                              ),
-                            ),
-                          );
-                        },
-                        child: Row(
-                          children: [
-                            Image.asset(
-                              AssetsManager.coinsVip,
-                              width: 40.w,
-                              height: 40.h,
-                            ),
-                            15.wBox,
-                            TextWidget(
-                              StringManager.shippingFromTheAgency.tr(),
-                              style: context.bodyMedium.bold
-                                  .colorExt(ColorManager.black),
-                            ),
-                            const Spacer(),
-                            Icon(
-                              Icons.keyboard_arrow_down_outlined,
-                              color: ColorManager.black,
-                            ),
-                          ],
-                        ),
+                      itemBuilder: (context, i) => _pack(
+                        coins[i],
+                        selected: _selected == (ind, i),
+                        onTap: () => setState(() => _selected = (ind, i)),
                       ),
                     ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _pack(CoinEntity coin,
+      {required bool selected, required VoidCallback onTap}) {
+    const pink = Color(0xFFF8284D);
+    final extra = coin.extraValue ?? 0;
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 160),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFFFFF4F6) : const Color(0xFFF3F4F7),
+          borderRadius: BorderRadius.circular(10.r),
+          border: Border.all(
+            color: selected ? pink : Colors.transparent,
+            width: 1.5,
+          ),
+        ),
+        child: Stack(
+          children: [
+            Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  FittedBox(
+                    fit: BoxFit.scaleDown,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Image.asset(AssetsManager.coinsVip, height: 18.h),
+                        4.wBox,
+                        Text(
+                          '${coin.coin}',
+                          style: TextStyle(
+                            color: const Color(0xFF1C1C1E),
+                            fontSize: 17.sp,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        if (extra > 0)
+                          Text(
+                            '+$extra',
+                            style: TextStyle(
+                              color: const Color(0xFFF5A623),
+                              fontSize: 16.sp,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  4.hBox,
+                  Text(
+                    '${_price(coin.usd)} \$',
+                    style: TextStyle(
+                      color: const Color(0xFF8E8F96),
+                      fontSize: 13.sp,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // Check mark in the bottom-right corner of the selected pack.
+            if (selected)
+              Positioned(
+                right: 0,
+                bottom: 0,
+                child: ClipPath(
+                  clipper: _CornerClipper(),
+                  child: Container(
+                    width: 24.w,
+                    height: 24.w,
+                    color: pink,
+                    alignment: Alignment.bottomRight,
+                    padding: const EdgeInsets.only(right: 2, bottom: 1),
+                    child: Icon(Icons.check_rounded,
+                        color: Colors.white, size: 12.sp),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _getButton(FetchCoinsState state) {
+    final sel = _selected;
+    final coin = (sel != null &&
+            (state.data?.length ?? 0) > sel.$1 &&
+            (state.data![sel.$1].coins?.length ?? 0) > sel.$2)
+        ? state.data![sel.$1].coins![sel.$2]
+        : null;
+    final enabled = coin != null;
+    return SafeArea(
+      top: false,
+      child: GestureDetector(
+        onTap: () {
+          if (!enabled) {
+            Methods.showToast(context, message: 'Choose a package first');
+            return;
+          }
+          _buy(state, sel!.$1, coin);
+        },
+        child: Opacity(
+          opacity: enabled ? 1 : 0.55,
+          child: Container(
+            height: 60.h,
+            width: double.infinity,
+            margin: EdgeInsets.fromLTRB(16.w, 8.h, 16.w, 12.h),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(32.r),
+              gradient: const LinearGradient(
+                colors: [Color(0xFF2EE6CC), Color(0xFF00D0E8)],
+              ),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF00D0E8).withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Get ',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    Image.asset(AssetsManager.coinsVip, height: 20.h),
+                    4.wBox,
+                    Text(
+                      enabled
+                          ? '${coin.coin + (coin.extraValue ?? 0)}'
+                          : '--',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 20.sp,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+                if (enabled)
+                  Text(
+                    'Total: ${_price(coin.usd)} \$',
+                    style: TextStyle(
+                      color: Colors.white.withValues(alpha: 0.9),
+                      fontSize: 14.sp,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return BlocBuilder<FetchCoinsBloc, FetchCoinsState>(
+      bloc: di<FetchCoinsBloc>(),
+      buildWhen: (prev, curr) =>
+          prev.reqState != curr.reqState || prev.data != curr.data,
+      builder: (context, state) {
+        final loading = state.reqState == RequestState.loading;
+        return Column(
+          children: [
+            Expanded(
+              child: ListView(
+                physics: const AlwaysScrollableScrollPhysics(
+                    parent: BouncingScrollPhysics()),
+                padding: EdgeInsets.fromLTRB(16.w, 14.h, 16.w, 8.h),
+                children: [
+                  _manualRecharge(),
                   HandlingDataWidget(
                     isNeedLoadingWidget: true,
                     reqState: state.reqState,
                     title: StringManager.noDataYet.tr(),
                     subTitle: StringManager.pleaseTryAgine.tr(),
-                    titleStyle: context.bodyLarge.w600
-                        .colorExt(ColorManager.black),
+                    titleStyle:
+                        context.bodyLarge.w600.colorExt(ColorManager.black),
                     subTitleStyle: context.bodyMedium
                         .copyWith(color: ColorManager.black, height: 1.30),
                     buttonBackgroundColors: [
@@ -132,183 +433,49 @@ class _CoinsViewState extends State<CoinsView> {
                       di<MyStoreBloc>()
                           .add(const GetMyStoreEvent(isLoading: false));
                     },
-                    child: Skeletonizer(
-                      enabled: state.reqState == RequestState.loading,
-                      child: ListView.builder(
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: state.reqState == RequestState.loading
-                            ? 5
-                            : state.data?.length ?? 0,
-                        shrinkWrap: true,
-                        itemBuilder: (context, ind) {
-                          return Container(
-                            decoration: BoxDecoration(
-                              color: ColorManager.white,
-                              borderRadius: 12.radius,
-                              border: Border.all(
-                                  color: ColorManager.grey2
-                                      .withValues(alpha: 0.3)),
-                              boxShadow: [
-                                BoxShadow(
-                                  color:
-                                  ColorManager.black.withValues(alpha: 0.05),
-                                  blurRadius: 8.r,
-                                  offset: Offset(0, 2.h),
-                                ),
-                              ],
-                            ),
-                            margin: context.paddingSymmetric(vertical: 5),
-                            child: Material(
-                              color: ColorManager.transparent,
-                              child: Theme(
-                                data: Theme.of(context)
-                                    .copyWith(dividerColor: ColorManager.white),
-                                child: state.reqState.isLoading
-                                    ? Container(
-                                    width: 40.w,
-                                    height: 40.h,
-                                    color: Colors.grey[300])
-                                    : ExpansionTile(
-                                  leading: ImageViewWidget(
-                                    url: state.data?[ind].photo ?? "",
-                                    width: 40.w,
-                                    height: 40.h,
-                                    boxFit: BoxFit.contain,
+                    child: loading
+                        ? Skeletonizer(
+                            enabled: true,
+                            child: Column(
+                              children: List.generate(
+                                2,
+                                (_) => _section(
+                                  child: SizedBox(
+                                    height: 150.h,
+                                    width: double.infinity,
                                   ),
-                                  title: TextWidget(
-                                    state.data?[ind].title != null
-                                        ? StringManager.getGateWay(
-                                        gateway:
-                                        state.data![ind].title!)
-                                        : "",
-                                    style: context.bodyMedium.bold
-                                        .colorExt(ColorManager.black),
-                                  ),
-                                  children: [
-                                    Column(
-                                      children: List.generate(
-                                        state.data?[ind].coins?.length ?? 0,
-                                            (index) {
-                                          final coin = state
-                                              .data?[ind].coins?[index];
-                                          return Container(
-                                            padding:
-                                            context.paddingSymmetric(
-                                                horizontal: 15),
-                                            margin:
-                                            context.paddingSymmetric(
-                                                vertical: 10),
-                                            child: Row(
-                                              crossAxisAlignment:
-                                              CrossAxisAlignment.center,
-                                              mainAxisAlignment:
-                                              MainAxisAlignment.start,
-                                              children: [
-                                                Image.asset(
-                                                  AssetsManager.coinsVip,
-                                                  scale: 2.5,
-                                                ),
-                                                10.wBox,
-                                                Expanded(
-                                                  child: TextWidget(
-                                                    coin?.coin.toString() ??
-                                                        '',
-                                                    style: context
-                                                        .bodyMedium.bold
-                                                        .colorExt(
-                                                        ColorManager.black)
-                                                        .size(18),
-                                                  ),
-                                                ),
-                                                ButtonWidget(
-                                                  fontWeight:
-                                                  FontWeight.w500,
-                                                  fontSize: 16,
-                                                  backgroundColor:
-                                                  ColorManager
-                                                      .coinsAccent,
-                                                  onPressed: () async {
-                                                    if (state.data![ind]
-                                                        .title ==
-                                                        "google_pay" &&
-                                                        di<PurchaseService>()
-                                                            .result !=
-                                                            null) {
-                                                      // ✅ ফিক্স: iamparty_coin_1, coin_1 এবং coin.id সঠিকভাবে ম্যাচ করবে
-                                                      final matches = di<
-                                                          PurchaseService>()
-                                                          .result!
-                                                          .productDetails
-                                                          .where((element) =>
-                                                      element.id == 'iamparty_coin_${coin?.id}' ||
-                                                          element.id == 'coin_${coin?.id}' ||
-                                                          element.id == coin?.id.toString());
-
-                                                      if (matches.isEmpty) {
-                                                        Methods.showToast(
-                                                          context,
-                                                          message:
-                                                          'This package is not available right now',
-                                                          isError: true,
-                                                        );
-                                                        return;
-                                                      }
-                                                      di<PurchaseService>()
-                                                          .buyProduct(
-                                                          matches.first);
-                                                    } else {
-                                                      if (!di<BuyCoinsBloc>()
-                                                          .state
-                                                          .reqState
-                                                          .isLoading) {
-                                                        di<BuyCoinsBloc>()
-                                                            .add(
-                                                          BuyCoinsEvent(
-                                                            context: context,
-                                                            method: state
-                                                                .data?[
-                                                            ind]
-                                                                .title ??
-                                                                '',
-                                                            productId: coin
-                                                                ?.id
-                                                                .toString() ??
-                                                                "",
-                                                          ),
-                                                        );
-                                                      }
-                                                    }
-                                                    Methods.showToast(
-                                                        context,
-                                                        isLoading: true);
-                                                  },
-                                                  height: 33.h,
-                                                  width: 110.w,
-                                                  title: coin?.usd != null
-                                                      ? "${coin!.usd % 1 == 0 ? coin.usd.toInt() : coin.usd.toString()} \$"
-                                                      : '',
-                                                ),
-                                              ],
-                                            ),
-                                          );
-                                        },
-                                      ),
-                                    )
-                                  ],
                                 ),
                               ),
                             ),
-                          );
-                        },
-                      ),
-                    ),
+                          )
+                        : Column(
+                            children: List.generate(
+                              state.data?.length ?? 0,
+                              (ind) => _gateway(state, ind),
+                            ),
+                          ),
                   ),
                 ],
               ),
             ),
+            if (!loading && (state.data?.isNotEmpty ?? false))
+              _getButton(state),
           ],
         );
       },
     );
   }
+}
+
+/// Bottom-right triangle for the selected package's check mark.
+class _CornerClipper extends CustomClipper<Path> {
+  @override
+  Path getClip(Size size) => Path()
+    ..moveTo(size.width, 0)
+    ..lineTo(size.width, size.height)
+    ..lineTo(0, size.height)
+    ..close();
+
+  @override
+  bool shouldReclip(covariant CustomClipper<Path> oldClipper) => false;
 }

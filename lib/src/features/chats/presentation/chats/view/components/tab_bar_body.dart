@@ -129,13 +129,12 @@ class _TabBarBodyState extends State<TabBarBody> {
                 gradient: selected ? ColorManager.brandGradient : null,
                 color: selected
                     ? null
-                    : ColorManager.homeHeaderTextColor.withValues(alpha: 0.22),
+                    : Colors.black.withValues(alpha: 0.06),
                 borderRadius: 24.radius,
                 border: selected
                     ? null
                     : Border.all(
-                        color: ColorManager.homeHeaderTextColor
-                            .withValues(alpha: 0.28),
+                        color: Colors.black.withValues(alpha: 0.18),
                         width: 0.7,
                       ),
                 boxShadow: selected
@@ -153,9 +152,11 @@ class _TabBarBodyState extends State<TabBarBody> {
                 label,
                 style: context.bodyLarge
                     .size(13)
-                    .colorExt(ColorManager.homeHeaderTextColor)
+                    // Selected sits on the brand gradient (white); an
+                    // unselected pill is on the white body (black).
+                    .colorExt(selected ? Colors.white : Colors.black)
                     .copyWith(
-                      fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                     ),
               ),
             ),

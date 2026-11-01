@@ -24,6 +24,17 @@ class BodyThemeBackground extends StatelessWidget {
     );
   }
 
+  /// app-check sends the body image as a relative `images/x.png`, and this
+  /// widget is built before the settings call has set the storage base, so
+  /// resolving it then produced `https://host/images/x.png` (404). Files live
+  /// under `/storage/`.
+  static String _storageUrl(String raw) {
+    final path = raw.trim();
+    if (path.isEmpty || EndPoints.isAbsoluteUrl(path)) return path;
+    return EndPoints.resolveUrl(path,
+        baseUrl: '${EndPoints.domainURL}/storage/');
+  }
+
   Widget _buildBackground(BuildContext context) {
     final themeType = HiveManager().getData<String>(
           KeysManager.USER_BOX,
@@ -31,12 +42,23 @@ class BodyThemeBackground extends StatelessWidget {
         ) ??
         '';
 
+    // The colors API ships the body region image as a full URL; prefer it.
+    final region = ColorManager.bodyRegion;
+    if (region != null && region.type == 'image' && region.isRenderable) {
+      return ImageViewWidget(
+        url: region.image,
+        height: ScreenUtil().screenHeight,
+        width: ScreenUtil().screenWidth,
+        boxFit: BoxFit.cover,
+      );
+    }
+
     if (themeType == 'image') {
-      final image = HiveManager().getData<String>(
+      final image = _storageUrl(HiveManager().getData<String>(
             KeysManager.USER_BOX,
             KeysManager.BODY_THEME_IMAGE_KEY,
           ) ??
-          '';
+          '');
       if (image.isNotEmpty) {
         return ImageViewWidget(
           url: image,

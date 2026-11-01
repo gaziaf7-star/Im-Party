@@ -32,7 +32,7 @@ class CreateFamilyBody extends StatelessWidget {
             width: ScreenUtil().screenWidth,
             padding: context.paddingAll(10),
             decoration: BoxDecoration(
-              color: ColorManager.offWhite,
+              color: Colors.white,
               borderRadius: BorderRadius.only(
                 topLeft: Radius.circular(25.r),
                 topRight: Radius.circular(25.r),

@@ -9,35 +9,29 @@ class RankContainerWidgetFamily extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: MediaQuery.of(context).size.width,
-          height:
-              (familiesRank).isEmpty || (familiesRank).length <= 4
-                  ? 280.h
-                  : null,
-          decoration: BoxDecoration(
-              color: ColorManager.white,
-              border: Border.all(color: ColorManager.white),
-              borderRadius: BorderRadius.only(
-                topLeft: 20.radiusCircular,
-                topRight: 20.radiusCircular,
-              )),
-          child: ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            padding: context.paddingOnly(bottom: 100.h, start: 10, end: 10),
-            itemBuilder: (context, index) {
-              return UserInfoRankWidget(
-                index: index + 4,
-                familyRankEntity: familiesRank[index],
-              );
-            },
-            itemCount: familiesRank.length,
-          ),
-        ),
-      ],
+    return RankListPanel(
+      child: ListView.builder(
+        shrinkWrap: true,
+        physics: const NeverScrollableScrollPhysics(),
+        padding: EdgeInsets.only(bottom: 100.h),
+        itemCount: familiesRank.length,
+        itemBuilder: (context, index) {
+          final family = familiesRank[index];
+          return RankListCard(
+            rank: index + 4,
+            onTap: () => openFamily(context, family),
+            avatar: UserImage(
+              image: family.img ?? '',
+              displayName: family.name ?? '',
+              imageSize: 56,
+              boxFit: BoxFit.cover,
+            ),
+            info: FamilyRankInfo(family: family, showValue: false),
+            valueIcon: AssetsManager.rankWealthIcon,
+            value: family.rank ?? '',
+          );
+        },
+      ),
     );
   }
 }

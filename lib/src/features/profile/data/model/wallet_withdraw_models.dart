@@ -79,10 +79,24 @@ class UserPaymentMethod extends Equatable {
 }
 
 class WithdrawUser extends Equatable {
-  const WithdrawUser({this.id = 0, this.name = '', this.image = ''});
+  const WithdrawUser({
+    this.id = 0,
+    this.name = '',
+    this.image = '',
+    this.publicId = '',
+  });
   final int id;
   final String name;
   final String image;
+
+  // The user-facing ID shown across the app (profile screens, mentions,
+  // etc.) is `uuid`/`unique_id`/`user_id` — a separate, stable-looking
+  // string distinct from `id`, which is just the row's internal DB primary
+  // key and was never meant to be shown to users.
+  final String publicId;
+
+  /// The ID to show on screen: the public one, or the row id as a fallback.
+  String get displayId => publicId.isNotEmpty ? publicId : '$id';
 
   factory WithdrawUser.fromJson(dynamic json) {
     final map = _map(json);
@@ -95,11 +109,13 @@ class WithdrawUser extends Equatable {
       image: (map['image'] ?? map['avatar'] ?? map['img_1'] ?? profile['avatar'])
               ?.toString() ??
           '',
+      publicId:
+          (map['uuid'] ?? map['unique_id'] ?? map['user_id'])?.toString() ?? '',
     );
   }
 
   @override
-  List<Object?> get props => [id, name, image];
+  List<Object?> get props => [id, name, image, publicId];
 }
 
 class WithdrawHistoryItem extends Equatable {
@@ -124,15 +140,44 @@ class WithdrawHistoryItem extends Equatable {
 
   factory WithdrawHistoryItem.fromJson(dynamic json) {
     final map = _map(json);
-    final payment = _map(map['payment_method'] ?? map['method']);
+    // The saved payment method (bKash/Nagad/... + number) can arrive as a
+    // nested relation under several names, or flat on the row.
+    final payment = _map(map['payment_method'] ??
+        map['paymentMethod'] ??
+        map['user_payment_method'] ??
+        map['userPaymentMethod'] ??
+        map['payment'] ??
+        (map['method'] is Map ? map['method'] : null));
+    String? pick(Map<String, dynamic> m, List<String> keys) {
+      for (final k in keys) {
+        final v = m[k]?.toString().trim() ?? '';
+        if (v.isNotEmpty && v != 'null') return v;
+      }
+      return null;
+    }
+
+    const nameKeys = ['method_name', 'name', 'type', 'method_type'];
+    const accountKeys = [
+      'method_account',
+      'account',
+      'account_number',
+      'number',
+      'phone',
+      'wallet_number',
+    ];
     final user = map['user'] ?? map['requester'];
     return WithdrawHistoryItem(
       id: _id(map['id']),
       amount: _number(map['amount']),
       status: map['status']?.toString() ?? '',
       receivedType: map['received_type']?.toString() ?? '',
-      methodName: (map['method_name'] ?? payment['method_name'] ?? payment['name'])?.toString() ?? '',
-      methodAccount: (map['method_account'] ?? payment['method_account'] ?? payment['account'])?.toString() ?? '',
+      methodName: pick(map, ['method_name']) ??
+          pick(payment, nameKeys) ??
+          (map['method'] is String ? map['method'] as String : ''),
+      methodAccount:
+          pick(map, ['method_account', 'account_number', 'number']) ??
+              pick(payment, accountKeys) ??
+              '',
       createdAt: (map['created_at'] ?? map['date'])?.toString() ?? '',
       user: user is Map ? WithdrawUser.fromJson(user) : null,
     );
@@ -147,16 +192,10 @@ class WithdrawReseller extends WithdrawUser {
     super.id,
     super.name,
     super.image,
+    super.publicId,
     this.whatsappNumber = '',
-    this.publicId = '',
   });
   final String whatsappNumber;
-
-  // The user-facing ID shown across the app (profile screens, mentions,
-  // etc.) is `uuid`/`unique_id`/`user_id` — a separate, stable-looking
-  // string distinct from `id`, which is just the row's internal DB primary
-  // key and was never meant to be shown to users.
-  final String publicId;
 
   bool get hasWhatsapp => whatsappNumber.isNotEmpty;
 
@@ -169,12 +208,8 @@ class WithdrawReseller extends WithdrawUser {
       id: user.id,
       name: user.name,
       image: user.image,
+      publicId: user.publicId,
       whatsappNumber: _whatsapp(sourceMap),
-      publicId: (sourceMap['uuid'] ??
-                  sourceMap['unique_id'] ??
-                  sourceMap['user_id'])
-              ?.toString() ??
-          '',
     );
   }
 

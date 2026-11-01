@@ -191,15 +191,16 @@ class _ChatsPageState extends State<ChatsPage> with TickerProviderStateMixin {
         ),
         body: Stack(
           children: [
-            // Chat-list wallpaper (was the fixed purple->blue Home-style
-            // gradient band) behind the title/search/tab-bar/list, matching
-            // the reference design.
-            Positioned.fill(
-              child: Image.asset(
-                AssetsManager.messageBackground,
-                fit: BoxFit.cover,
+            // Chat-list wallpaper, only when the admin set no body image —
+            // otherwise the admin image header from BackgroundImgWidget shows
+            // through, same as Home.
+            if (BackgroundImgWidget.panelBodyImage().isEmpty)
+              Positioned.fill(
+                child: Image.asset(
+                  AssetsManager.messageBackground,
+                  fit: BoxFit.cover,
+                ),
               ),
-            ),
             SafeArea(
           child: Column(
             children: [
@@ -215,7 +216,7 @@ class _ChatsPageState extends State<ChatsPage> with TickerProviderStateMixin {
                       // Home-style gradient band, not the panel's textPrimary.
                       style: context.titleLarge.bold
                           .size(24)
-                          .colorExt(ColorManager.homeHeaderTextColor),
+                          .colorExt(Colors.black),
                     ),
                     const Row(
                       mainAxisSize: MainAxisSize.min,
@@ -234,6 +235,9 @@ class _ChatsPageState extends State<ChatsPage> with TickerProviderStateMixin {
                 child: ChatsSearchBar(
                   controller: _searchCtrl,
                   onChanged: _onSearchChanged,
+                  // Dark text on a grey pill: the bar now sits on the white
+                  // body below the admin header image.
+                  light: false,
                 ),
               ),
               Expanded(

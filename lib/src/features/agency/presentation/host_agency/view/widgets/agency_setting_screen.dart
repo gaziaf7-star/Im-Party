@@ -1,5 +1,5 @@
 import 'package:general/src/core/index.dart';
-import 'package:general/src/core/widgets/md_indicator.dart';
+import 'package:general/src/features/agency/presentation/host_agency/view/widgets/agency_ui.dart';
 import 'package:general/src/features/agency/presentation/host_agency/view/component/agency_manager_screen/view/agency_manager_screen.dart';
 
 class AgencySettingScreen extends StatefulWidget {
@@ -38,9 +38,10 @@ class _AgencySettingScreenState extends State<AgencySettingScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBarWidget(
         title: StringManager.agencySetting.tr(),
-        backgroundColor: ColorManager.scaffoldBg,
+        backgroundColor: Colors.white,
         iconLasted:
             _tabController.index == _tabLength - 1 // Last tab is Join Requests
                 ? TextButton(
@@ -54,25 +55,35 @@ class _AgencySettingScreenState extends State<AgencySettingScreen>
       ),
       body: Column(
         children: [
-          Padding(
-            padding: context.paddingSymmetric(horizontal: 10),
+          Container(
+            height: 42.h,
+            margin: EdgeInsets.fromLTRB(12.w, 8.h, 12.w, 4.h),
+            padding: EdgeInsets.all(4.w),
+            decoration: BoxDecoration(
+              color: AgencyUI.surface,
+              borderRadius: BorderRadius.circular(24.r),
+            ),
             child: TabBar(
               controller: _tabController,
-              tabAlignment: TabAlignment.start,
-              isScrollable: true,
-              labelStyle:
-                  context.bodyMedium.size(12).colorExt(ColorManager.textPrimary),
-              unselectedLabelStyle: context.bodyMedium
-                  .size(11)
-                  .colorExt(ColorManager.textPrimary.withValues(alpha: (0.5))),
-              indicatorPadding: context.paddingSymmetric(horizontal: 10),
-              indicator: MDIndicator(
-                  indicatorColor: ColorManager.lightBlack,
-                  indicatorWidth: 17.w,
-                  indicatorHeight: 4.h,
-                  radius: 20),
-              labelPadding: context.paddingSymmetric(horizontal: 20),
-              indicatorSize: TabBarIndicatorSize.label,
+              labelColor: ColorManager.primary,
+              unselectedLabelColor: AgencyUI.muted,
+              labelStyle: TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w800),
+              unselectedLabelStyle:
+                  TextStyle(fontSize: 12.sp, fontWeight: FontWeight.w600),
+              indicator: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20.r),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: .08),
+                    blurRadius: 8,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
+              ),
+              splashBorderRadius: BorderRadius.circular(20.r),
+              labelPadding: EdgeInsets.symmetric(horizontal: 4.w),
+              indicatorSize: TabBarIndicatorSize.tab,
               dividerHeight: 0,
               tabs: [
                 if (StringManager.userType[2]!)

@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:general/src/core/index.dart';
 import 'package:general/src/core/widgets/bottom_dialog.dart';
 import 'package:general/src/core/widgets/cache/cache_alpha_widget.dart';
+import 'package:general/src/features/room/presentation/component/rocket/rocket_bottom_sheet.dart';
 import 'package:general/src/features/room/presentation/component/rocket/rocket_launch_banner.dart';
 import 'package:general/src/features/room/presentation/component/rocket/rocket_launch_overlay.dart';
 import 'package:general/src/core/widgets/cache/cache_vap_widget.dart';
@@ -221,6 +222,7 @@ class _LiveForegroundWidgetState extends State<LiveForegroundWidget>
           // reactive to RocketRealtimeController.
           const RocketLaunchOverlay(),
           const RocketLaunchBanner(),
+          const RocketRewardDialog(),
           _buildSideColumn(context),
           const _GiftDisplayStack(),
           _buildLuckyGiftSenderBanner(),

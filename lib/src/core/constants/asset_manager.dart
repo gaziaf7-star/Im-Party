@@ -160,6 +160,8 @@ class AssetsManager {
 
   static String get cpLoveIcon => "hel_cp_heart".svgaImg;
 
+  static String get relationHandshake => "relation_handshake".svgaImg;
+
   static String get fireWorks => "hel_active_fireworks".svgaImg;
 
   static String get cinemaLogo2 => "cinema_logo2".pngImg;
@@ -179,6 +181,11 @@ class AssetsManager {
   static String get coupleModeSeat => "couple_mode_seat".pngImg;
 
   static String get heartCpProfile => "heart_cp_profile".pngIcon;
+  // Profile relation cards (artwork from im_Chat).
+  static String get intimacyCpCard =>
+      "assets/icons/ui_icons/profileCpcard.png";
+  static String get intimacyFriendCard =>
+      "assets/icons/ui_icons/profileFriendCard.png";
 
   static String get youtube => "youtube".pngImg;
 
@@ -307,11 +314,18 @@ class AssetsManager {
 
   static String get rechargeChargeAgency => "recharge_charge_agency".pngIcon;
 
-  static String get grid1 => "top1room".svgaImg;
+  /// Animated frames for the top-3 room cards on the home list.
+  static const List<String> roomCardTopFrames = [
+    "assets/icons/ui_icons/top1_imparty.svga",
+    "assets/icons/ui_icons/top2_imparty.svga",
+    "assets/icons/ui_icons/top3_imparty.svga",
+  ];
 
-  static String get grid2 => "top2room".svgaImg;
+  static String get grid1 => roomCardTopFrames[0];
 
-  static String get grid3 => "top3room".svgaImg;
+  static String get grid2 => roomCardTopFrames[1];
+
+  static String get grid3 => roomCardTopFrames[2];
 
   static String get newSoundWave => "109190".pngIcon;
 
@@ -330,10 +344,14 @@ class AssetsManager {
   static String get multiple500 => "hel_reback_gift_multiple500".svgaImg;
   static String get multiple1000 => "hel_reback_gift_multiple1000".svgaImg;
 
+  static String get arBanner50 => "ar50".svgaImg;
+  static String get arBanner100 => "ar100".svgaImg;
   static String get arBanner250 => "ar250".svgaImg;
   static String get arBanner500 => "ar500".svgaImg;
   static String get arBanner1000 => "ar1000".svgaImg;
 
+  static String get enBanner50 => "en50".svgaImg;
+  static String get enBanner100 => "en100".svgaImg;
   static String get enBanner250 => "en250".svgaImg;
   static String get enBanner500 => "en500".svgaImg;
   static String get enBanner1000 => "en1000".svgaImg;
@@ -402,6 +420,13 @@ class AssetsManager {
   static String get audioRedPocketIcon => "audioredpoket ".pngImg;
 
   static String get rocketPathImage => "roketpath".pngImg;
+  static String get rocketLogo => "assets/icons/ui_icons/roket1.png";
+  static String get rocketRankingCard =>
+      "assets/icons/ui_icons/roketRankingcard.png";
+  static String get rocketLaunchpadSvga =>
+      "assets/icons/ui_icons/rocket_launchpad_2mb.svga";
+  static String get rocketRewardFrame =>
+      "assets/icons/ui_icons/roket Reword frame.png";
 
   static String get gameIconRank => "game_icon_rank".pngIcon;
 
@@ -798,6 +823,7 @@ class AssetsManager {
   static const String cpBackgroundImage = "assets/images/CpBackgroundimage.png";
 
   static String dollar1 = "dollar_symbol".pngIcon;
+  static String get dailyRewardIcon => "assets/icons/ui_icons/daily reword.png";
   static const String logo = "assets/images/logo (2).png";
   static const String superBoomIcon = "assets/images/superboom.png";
   static const String messageBackground =

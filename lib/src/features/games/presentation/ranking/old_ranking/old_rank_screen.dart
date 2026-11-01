@@ -1,3 +1,4 @@
+import 'package:general/src/core/widgets/country_icon.dart';
 import 'package:general/src/core/widgets/level_container.dart';
 import 'package:general/src/core/widgets/show_svga.dart';
 import 'package:general/src/core/widgets/vip_container.dart';
@@ -6,6 +7,7 @@ import 'package:general/src/features/games/domain/entities/agency_ranking_entity
 import 'package:general/src/features/games/games.dart';
 import 'package:general/src/features/games/presentation/ranking/old_ranking/agency_rank/old_agency_rank_container_widget.dart';
 import 'package:general/src/features/games/presentation/ranking/old_ranking/agency_rank/old_top_three_agency_widget.dart';
+import 'rank_theme.dart';
 import 'widgets/old_rank_tab_bar.dart';
 
 part 'components/old_center_shadow_body.dart';
@@ -278,66 +280,41 @@ class OldRankScreenState extends State<OldRankScreen>
         // Use old background colors
         final bgColor = _oldBgColor(state.index);
 
-        final overlayColor = state.index == 0
-            ? const Color(0xffFFC73A).withValues(alpha: 0.4)
-            : state.index == 1
-                ? const Color(0xffFFE83A).withValues(alpha: 0.4)
-                : state.index == 2
-                    ? const Color(0xffFDA057).withValues(alpha: 0.4)
-                    : const Color(0xff7468FB).withValues(alpha: 0.1);
-
-        final centerShadowColor = state.index == 0
-            ? const Color(0xffFFC73A)
-            : state.index == 1
-                ? const Color(0xffFEE93A)
-                : state.index == 2
-                    ? const Color(0xffFDA057)
-                    : const Color(0xff7468FB);
-
+        // Each ranking page has its own colour set.
+        final palette = RankPalette.forIndex(state.index);
         return Scaffold(
-          backgroundColor: ColorManager.transparent,
-          body: Container(
+          backgroundColor: palette.bgTop,
+          body: AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
             height: ScreenUtil().screenHeight,
             width: ScreenUtil().screenWidth,
-            decoration: BoxDecoration(color: bgColor),
+            decoration: BoxDecoration(gradient: palette.background),
             child: Stack(
               children: [
-                Image.asset(
-                  AssetsManager.rankBackground,
-                  fit: BoxFit.fill,
-                  height: ScreenUtil().screenHeight,
-                  width: ScreenUtil().screenWidth,
-                  filterQuality: FilterQuality.low,
-                ),
-                Container(
-                  height: ScreenUtil().screenHeight,
-                  width: ScreenUtil().screenWidth,
-                  color: overlayColor,
-                ),
-                Positioned(
-                  bottom: 320.h,
-                  left: 70.h,
-                  right: 70.h,
-                  child: OldCenterShadowBody(
-                    color: centerShadowColor,
-                  ),
-                ),
                 Column(
                   children: [
-                    AppBarWidget(
-                      title: StringManager.ranking.tr(),
-                      backgroundColor: ColorManager.transparent,
-                      titleStyle: context.titleLarge.bold
-                          .colorExt(ColorManager.white),
-                      iconColor: ColorManager.white,
+                    SafeArea(
+                      bottom: false,
+                      child: Row(
+                        children: [
+                          IconButton(
+                            onPressed: () => Navigator.of(context).maybePop(),
+                            icon: const Icon(Icons.arrow_back_ios_new_rounded,
+                                color: Colors.white),
+                          ),
+                          Expanded(
+                            child: OldTopTabBar(
+                                controller: _rankController, fromRoom: false),
+                          ),
+                          48.wBox,
+                        ],
+                      ),
                     ),
-                    OldTopTabBar(
-                        controller: _rankController, fromRoom: false),
                     Expanded(
                       child: TabBarView(
                         controller: _rankController,
                         children: [
-                          OldRankBody(
+                          RankPaletteScope(palette: RankPalette.forIndex(0), child: OldRankBody(
                             rankController: _rankController,
                             controller: _roomController,
                             reqStateHour: state.rhState,
@@ -360,8 +337,8 @@ class OldRankScreenState extends State<OldRankScreen>
                             onTapMonthly: () => di<RankingBloc>()
                                 .add(const FetchRoomMonthlyEvent()),
                             isPhoto: _rankController.index != 0,
-                          ),
-                          OldRankBody(
+                          )),
+                          RankPaletteScope(palette: RankPalette.forIndex(1), child: OldRankBody(
                             rankController: _rankController,
                             controller: _wealthController,
                             reqStateHour: state.chState,
@@ -384,8 +361,8 @@ class OldRankScreenState extends State<OldRankScreen>
                             onTapMonthly: () => di<RankingBloc>()
                                 .add(const FetchCoinsMonthlyEvent()),
                             isPhoto: _rankController.index != 1,
-                          ),
-                          OldRankBody(
+                          )),
+                          RankPaletteScope(palette: RankPalette.forIndex(2), child: OldRankBody(
                             rankController: _rankController,
                             controller: _charmController,
                             reqStateHour: state.dhState,
@@ -408,8 +385,8 @@ class OldRankScreenState extends State<OldRankScreen>
                             onTapMonthly: () => di<RankingBloc>()
                                 .add(const FetchDiamondsMonthlyEvent()),
                             isPhoto: _rankController.index != 2,
-                          ),
-                          OldRankBody(
+                          )),
+                          RankPaletteScope(palette: RankPalette.forIndex(3), child: OldRankBody(
                             rankController: _rankController,
                             controller: _gameController,
                             reqStateHour: state.ghState,
@@ -432,8 +409,8 @@ class OldRankScreenState extends State<OldRankScreen>
                             onTapMonthly: () => di<RankingBloc>()
                                 .add(const FetchGamersMonthlyEvent()),
                             isPhoto: _rankController.index != 3,
-                          ),
-                          OldRankAgencyBody(
+                          )),
+                          RankPaletteScope(palette: RankPalette.forIndex(4), child: OldRankAgencyBody(
                             controller: _agencyController,
                             rankController: _rankController,
                             reqStateHour: state.agencyHState,
@@ -456,8 +433,8 @@ class OldRankScreenState extends State<OldRankScreen>
                             onTapMonthly: () => di<RankingBloc>()
                                 .add(const FetchAgencyMonthlyEvent()),
                             isPhoto: _rankController.index != 4,
-                          ),
-                          OldRankBody(
+                          )),
+                          RankPaletteScope(palette: RankPalette.forIndex(5), child: OldRankBody(
                             rankController: _rankController,
                             controller: _luckyController,
                             reqStateHour: state.lhState,
@@ -480,7 +457,7 @@ class OldRankScreenState extends State<OldRankScreen>
                             onTapMonthly: () => di<RankingBloc>()
                                 .add(const FetchLuckyMonthlyEvent()),
                             isPhoto: _rankController.index != 5,
-                          ),
+                          )),
                         ],
                       ),
                     ),

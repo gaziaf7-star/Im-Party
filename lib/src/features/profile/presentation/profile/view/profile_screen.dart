@@ -1,4 +1,5 @@
 import 'package:general/src/core/index.dart';
+import 'package:shimmer/shimmer.dart';
 import 'package:general/src/core/widgets/country_icon.dart';
 import 'package:general/src/core/widgets/id_with_copy.dart';
 import 'package:general/src/features/agency/presentation/charge_agency/view/component/host_withdrawel_screen/bloc/get_setting_manager/get_setting_bloc.dart';
@@ -13,6 +14,8 @@ import 'package:general/src/features/profile/presentation/profile/view/widgets/f
 import 'package:general/src/features/profile/presentation/profile/view/widgets/third_card_body.dart';
 import 'package:general/src/core/widgets/level_container.dart';
 import 'package:general/src/core/widgets/vip_container.dart';
+import 'package:general/src/features/vip/presentation/bloc/vip_center/vip_center_bloc.dart' show VipCenterBloc;
+import 'package:general/src/features/vip/presentation/bloc/vip_center/vip_center_event.dart' show GetVipCenterEvent;
 // Role tags (BD / Agent / Seller / Host) shared with the in-room profile,
 // so both read the same `user_types` and cannot disagree.
 
@@ -38,18 +41,34 @@ class ProfilePage extends StatefulWidget {
 
 class _ProfilePageState extends State<ProfilePage> {
   @override
+  void initState() {
+    super.initState();
+    // Warm the slow SVIP list so the SVIP page opens instantly.
+    final vipBloc = di<VipCenterBloc>();
+    if (vipBloc.state.vip.isEmpty &&
+        !vipBloc.state.requestState.isLoading) {
+      vipBloc.add(const GetVipCenterEvent(isLoading: false));
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return BackgroundImgWidget(
       // Home page's exact gradient band (was the panel-driven body theme/
       // scaffoldBg) — requested to match the Home page background.
       backgroundGradient: ColorManager.homeBackgroundGradient,
+      // The admin image is drawn inside the scroll content (_ScrollHeader) so
+      // the whole page, image included, scrolls together.
+      paintHeaderImage: false,
       child: Scaffold(
         // Fixed transparent in both themes so the gradient above shows
         // through (was ColorManager.background — an opaque near-black that
         // would have hidden it in theme1).
         backgroundColor: ColorManager.transparent,
+        // No top SafeArea: the header image starts under the status bar;
+        // _ScrollHeader pads the content below it instead.
         body: SafeArea(
-          top: !ConstantsManager.isTheme1,
+          top: false,
           child: BlocBuilder<FetchUserDataBloc, FetchUserDataState>(
             bloc: di<FetchUserDataBloc>(),
             buildWhen: (prev, curr) =>
@@ -92,10 +111,202 @@ class _ProfilePageState extends State<ProfilePage> {
         ? _NewProfileBody(data: state.userEntity ?? const MyDataEntity())
         : SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      child: _ProfileBody(
-          data: state.userEntity ?? const MyDataEntity()),
+      child: _ScrollHeader(
+        child: _ProfileBody(
+            data: state.userEntity ?? const MyDataEntity()),
+      ),
     ),
   );
+}
+
+/// Where the admin header image ends on the profile: the vertical middle of
+/// the follow/fans card, measured inside [_ScrollHeader]'s content.
+final ValueNotifier<double?> _profileHeaderHeight = ValueNotifier(null);
+
+/// Key of [_ScrollHeader]'s stack; [_FollowCard] measures against it.
+final GlobalKey _profileContentKey = GlobalKey();
+
+/// Profile scroll content with the admin body image behind its top, from the
+/// very top of the screen (under the status bar) down to the middle of the
+/// follow card. Part of the scroll content, so it scrolls with the page. The
+/// content itself starts below the status bar.
+class _ScrollHeader extends StatelessWidget {
+  const _ScrollHeader({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final image = BackgroundImgWidget.panelBodyImage();
+    final size = MediaQuery.sizeOf(context);
+    return Stack(
+      key: _profileContentKey,
+      children: [
+        if (image.isNotEmpty)
+          ValueListenableBuilder<double?>(
+            valueListenable: _profileHeaderHeight,
+            builder: (context, height, _) {
+              final h = height ?? size.height * 0.3;
+              return Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                height: h,
+                child: ImageViewWidget(
+                  url: image,
+                  width: size.width,
+                  height: h,
+                  boxFit: BoxFit.cover,
+                ),
+              );
+            },
+          ),
+        Padding(
+          padding: EdgeInsets.only(top: MediaQuery.paddingOf(context).top),
+          child: child,
+        ),
+      ],
+    );
+  }
+}
+
+/// White card around the follow / fans / friends / visitors row. Reports the
+/// card's vertical centre (unscrolled) to [_profileHeaderHeight] so the header
+/// image ends exactly at its middle.
+class _FollowCard extends StatefulWidget {
+  const _FollowCard({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_FollowCard> createState() => _FollowCardState();
+}
+
+class _FollowCardState extends State<_FollowCard> {
+  void _measure() {
+    if (!mounted) return;
+    final box = context.findRenderObject() as RenderBox?;
+    final content =
+        _profileContentKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null || !box.hasSize || content == null) return;
+    // Card centre in the scroll content's own coordinates: independent of
+    // how far the page is scrolled.
+    final centre = box
+        .localToGlobal(Offset(0, box.size.height / 2), ancestor: content)
+        .dy;
+    if (_profileHeaderHeight.value == null ||
+        (_profileHeaderHeight.value! - centre).abs() > 1) {
+      _profileHeaderHeight.value = centre;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    WidgetsBinding.instance.addPostFrameCallback((_) => _measure());
+    // Square white card; a thin violet-pink-blue line and a light, simple
+    // ornament in each corner.
+    return Container(
+      width: double.infinity,
+      margin: context.paddingSymmetric(horizontal: 15),
+      decoration: BoxDecoration(
+        color: ColorManager.white,
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF8E5CFF).withValues(alpha: 0.10),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: CustomPaint(
+        foregroundPainter: const _CornerOrnamentPainter(),
+        child: Padding(
+          // Extra room above the counts; sides clear the corner ornaments.
+          padding: EdgeInsets.fromLTRB(18.w, 20.h, 18.w, 14.h),
+          child: widget.child,
+        ),
+      ),
+    );
+  }
+}
+
+/// Thin violet-pink-blue border and a light, simple ornament in each corner
+/// (an L bracket, a small curl and a tiny diamond).
+class _CornerOrnamentPainter extends CustomPainter {
+  const _CornerOrnamentPainter();
+
+  static const _colors = [Color(0xFF8E5CFF), Color(0xFFD67BF2), Color(0xFF6FA2FF)];
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final rect = Offset.zero & size;
+    final shader = const LinearGradient(
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+      colors: _colors,
+      stops: [0.0, 0.5, 1.0],
+    ).createShader(rect);
+
+    // Faint full border.
+    canvas.drawRect(
+      rect.deflate(0.6),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.0
+        ..shader = shader
+        ..color = Colors.white.withValues(alpha: 0.35),
+    );
+
+    final line = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round
+      ..shader = shader;
+    final s = (h * 0.32).clamp(14.0, 24.0);
+
+    for (final (sx, sy) in const [(1.0, 1.0), (-1.0, 1.0), (1.0, -1.0), (-1.0, -1.0)]) {
+      canvas.save();
+      canvas.translate(sx > 0 ? 0 : w, sy > 0 ? 0 : h);
+      canvas.scale(sx, sy);
+      final o = 4.0; // inset from the edge
+      // L bracket.
+      canvas.drawPath(
+        Path()
+          ..moveTo(o, o + s)
+          ..lineTo(o, o)
+          ..lineTo(o + s, o),
+        line,
+      );
+      // Small curl inside the bracket.
+      canvas.drawPath(
+        Path()
+          ..moveTo(o + s * 0.95, o + s * 0.30)
+          ..quadraticBezierTo(o + s * 0.30, o + s * 0.30, o + s * 0.30, o + s * 0.95),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.1
+          ..strokeCap = StrokeCap.round
+          ..shader = shader,
+      );
+      // Tiny diamond at the corner.
+      final c = Offset(o + s * 0.30, o + s * 0.30);
+      final d = s * 0.14;
+      canvas.drawPath(
+        Path()
+          ..moveTo(c.dx, c.dy - d)
+          ..lineTo(c.dx + d, c.dy)
+          ..lineTo(c.dx, c.dy + d)
+          ..lineTo(c.dx - d, c.dy)
+          ..close(),
+        Paint()..shader = shader,
+      );
+      canvas.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
 }
 
 class _NewProfileBody extends StatelessWidget {
@@ -243,7 +454,8 @@ class _NewProfileBody extends StatelessWidget {
     );
     return SingleChildScrollView(
       physics: const AlwaysScrollableScrollPhysics(),
-      child: Column(
+      child: _ScrollHeader(
+          child: Column(
         crossAxisAlignment: CrossAxisAlignment.center,
         children: [
           80.hBox,
@@ -265,10 +477,12 @@ class _NewProfileBody extends StatelessWidget {
           2.5.hBox,
           _UserIDRow(key: const ValueKey("id_new_theme"), user: user),
           20.hBox,
-          FFLFBody(
-            isMyProfile: true,
-            data: user,
-            textColor: ColorManager.momentPostTextColor,
+          _FollowCard(
+            child: FFLFBody(
+              isMyProfile: true,
+              data: user,
+              textColor: ColorManager.momentPostTextColor,
+            ),
           ),
           20.hBox,
           _FirstCardOnNewProfile(firstIcons: getFirstIcons()),
@@ -276,6 +490,7 @@ class _NewProfileBody extends StatelessWidget {
           _SecondCardOnNewProfile(secondIcons: _secondIcons),
           10.hBox,
         ],
+      ),
       ),
     );
   }

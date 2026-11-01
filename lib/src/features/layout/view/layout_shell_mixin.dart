@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:general/src/core/index.dart';
 import 'package:general/src/core/cache/image_cache_manager.dart';
 import 'package:general/src/core/cache/video_cache_manager.dart';
-import 'package:general/src/core/widgets/update_dialog.dart';
+import 'package:general/src/core/widgets/app_update_prompt.dart';
 import 'package:general/src/features/agency/data/model/host_requests_model.dart';
 import 'package:general/src/features/agency/presentation/charge_agency/view/component/host_withdrawel_screen/bloc/host_requests_manager/host_requests_bloc.dart';
 import 'package:general/src/features/auth/presentation/splash/config_app/config_app_bloc.dart';
@@ -16,7 +16,7 @@ import 'package:general/src/features/auth/presentation/splash/config_app/config_
 /// Pure extraction — no behaviour change. Mix in AFTER [WidgetsBindingObserver]:
 /// `class _State extends State<X> with WidgetsBindingObserver, LayoutShellMixin<X>`.
 mixin LayoutShellMixin<T extends StatefulWidget>
-    on State<T>, WidgetsBindingObserver {
+on State<T>, WidgetsBindingObserver {
   /// Guards the host-request dialog so it is shown at most once at a time.
   bool isDialogVisible = false;
 
@@ -46,23 +46,7 @@ mixin LayoutShellMixin<T extends StatefulWidget>
   /// Shows the force/optional update dialog when the backend reports the app is
   /// not on the latest version.
   void checkForUpdate() {
-    final configState = di<ConfigAppBloc>().state;
-    if (configState.requestState.isLoaded &&
-        configState.config?.isLastVersion != true) {
-      showDialog(
-        context: context,
-        barrierDismissible: !(configState.config?.isForce ?? false),
-        barrierColor: Colors.black.withValues(alpha: 0.5),
-        builder: (_) => PopScope(
-          canPop: false,
-          child: ForceUpdateDialog(
-            description: StringManager.updatDesc.tr(),
-            isOptionalUpdate: !(configState.config?.isForce ?? false),
-            onConfirm: () => Methods.openUrl(ConstantsManager.appURL),
-          ),
-        ),
-      );
-    }
+    AppUpdatePrompt.showIfNeeded(context, di<ConfigAppBloc>().state);
   }
 
   /// Common [HostRequestsBloc] listener body: surface a pending host request
@@ -84,9 +68,9 @@ mixin LayoutShellMixin<T extends StatefulWidget>
   /// The host withdrawal/request approval dialog (payment method + USD + bill
   /// image), with the confirm action wired to [HostRequestsBloc].
   Future<void> showHostRequestDialog(
-    HostRequestsModel data,
-    BuildContext context,
-  ) async {
+      HostRequestsModel data,
+      BuildContext context,
+      ) async {
     await showDialog<void>(
       context: context,
       builder: (context) => AnimatedDialog(
@@ -105,14 +89,14 @@ mixin LayoutShellMixin<T extends StatefulWidget>
             TextSpan(
                 text: data.paymentGateway ?? "",
                 style:
-                    context.bodyMedium.w300.colorExt(ColorManager.primary)),
+                context.bodyMedium.w300.colorExt(ColorManager.primary)),
             TextSpan(
                 text: "  ${StringManager.usd.tr()}: ",
                 style: context.bodyMedium.w300),
             TextSpan(
                 text: (data.usd ?? 0).toString(),
                 style:
-                    context.bodyMedium.w300.colorExt(ColorManager.primary)),
+                context.bodyMedium.w300.colorExt(ColorManager.primary)),
             TextSpan(
                 text: '   ${StringManager.hostRequestHint.tr()}',
                 style: context.bodyMedium.w300),

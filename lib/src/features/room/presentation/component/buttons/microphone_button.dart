@@ -1,4 +1,5 @@
 import 'package:general/src/core/services/room_background_service.dart';
+import 'package:general/src/features/room/presentation/room_controls/room_controls.dart';
 import 'package:general/src/features/room/room.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../../../../../core/index.dart';
@@ -15,6 +16,27 @@ class MicrophoneButton extends StatelessWidget {
       return _icon(false);
     }
 
+    // All Mute: while it holds for this user the mic stays off and a tap
+    // only explains why.
+    return ValueListenableBuilder<RoomControlsState>(
+      valueListenable: RoomControls.instance.state,
+      builder: (context, _, __) {
+        if (!RoomControls.instance.canISpeak) {
+          return InkWell(
+            onTap: () => Methods.showToast(
+              context,
+              message: 'All Mute is on. The host has to allow you to speak.',
+              isError: true,
+            ),
+            child: _icon(false),
+          );
+        }
+        return _micButton(media);
+      },
+    );
+  }
+
+  Widget _micButton(UTDMediaController media) {
     // Gate the mic on the local publish permission. On a role demotion the
     // engine revokes publish and stops the track, so a tap-to-enable would
     // fail — disable the control and show it muted.
@@ -27,7 +49,15 @@ class MicrophoneButton extends StatelessWidget {
             final isOn = canPublish && micOn;
             return InkWell(
               onTap: () async {
-                if (!canPublish) return;
+                if (!canPublish && !media.refreshCanPublish()) {
+                  debugPrint('[MicrophoneButton] tapped — no publish permission');
+                  Methods.showToast(
+                    context,
+                    message: 'Mic is not ready yet. Take a seat and try again.',
+                    isError: true,
+                  );
+                  return;
+                }
                 debugPrint(
                     '[MicrophoneButton] tapped — current state: $isOn, target: ${!isOn}');
                 final targetState = !isOn;

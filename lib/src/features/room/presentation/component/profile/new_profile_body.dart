@@ -1,5 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:ui' as ui;
+import 'package:general/src/core/cache/svga_movie_cache.dart';
+import 'package:general/src/core/cache/image_cache_manager.dart';
 import 'package:general/src/core/widgets/bottom_dialog.dart';
 import 'package:general/src/features/auth/presentation/splash/get_vip_frames_bloc/get_vip_frames_bloc.dart';
 import 'package:general/src/core/widgets/cache/cache_alpha_widget.dart';
@@ -19,6 +22,10 @@ import 'package:general/src/features/room/presentation/component/profile/compone
 import 'package:general/src/features/profile/presentation/f_f_f_v/bloc/bloc_make_follow_unfollow/follow_bloc.dart';
 import 'package:general/src/features/profile/domain/profile_use_case/follow_unfollow_use_case.dart';
 import 'package:general/src/features/room/presentation/component/profile/widgets/new_follow_button.dart';
+import 'package:general/src/features/room/presentation/component/profile/widgets/profile_sheet_parts.dart';
+import 'package:general/src/features/profile/presentation/profile/view/page/user_profile/bloc/get_user_support/get_user_support_bloc.dart';
+import 'package:general/src/features/profile/presentation/profile/view/page/user_profile/bloc/get_user_support/get_user_support_event.dart';
+import 'package:general/src/features/profile/presentation/profile/view/page/user_profile/bloc/get_user_support/get_user_support_state.dart';
 import 'package:general/src/features/room/presentation/gifts/gift.dart';
 
 import 'package:general/src/features/room/presentation/component/messages/messages_button/input_board.dart';
@@ -44,6 +51,13 @@ class NewProfileBody extends StatefulWidget {
 }
 
 class _NewProfileBodyState extends State<NewProfileBody> {
+  /// Share of the full-card frame artwork that hangs above the card (its
+  /// transparent top + ornament tips). Every frame is drawn differently --
+  /// SVIP 6/8 have far taller wings than SVIP 1 -- so it is measured per
+  /// frame in [_measureFrameBand]; 0.345 (SVIP 1) until that lands.
+  double _frameClearTop = 0.345;
+  String? _measuredFrame;
+
   String vipImage = '';
   String vipType = '';
   String vipId = '';
@@ -53,6 +67,9 @@ class _NewProfileBodyState extends State<NewProfileBody> {
   late final GetUserBadgesBloc getUserBadgesBloc;
   late final FollowBloc _followBloc;
   late final FetchExtraDataBloc _fetchExtraDataBloc;
+
+  /// Top gift senders for the "Gift Sender Top3" card.
+  late final GetSupporterBloc _supporterBloc;
   StreamSubscription<GetVipFramesState>? _vipFramesSub;
 
   @override
@@ -62,6 +79,8 @@ class _NewProfileBodyState extends State<NewProfileBody> {
     _ensureVipFramesCached();
     _fetchExtraDataBloc = di<FetchExtraDataBloc>();
     _fetchExtraDataBloc.add(FetchExtraDataProfile(userId: widget.userId));
+    _supporterBloc = di<GetSupporterBloc>()
+      ..add(GetUserSupporterEvent(userId: widget.userId));
     getUserBadgesBloc = di<GetUserBadgesBloc>();
     getUserBadgesBloc.add(GetUserBadgesData(id: int.tryParse(widget.userId) ?? 0));
     _followBloc = FollowBloc(
@@ -87,7 +106,106 @@ class _NewProfileBodyState extends State<NewProfileBody> {
   void dispose() {
     _vipFramesSub?.cancel();
     _followBloc.close();
+    _supporterBloc.close();
     super.dispose();
+  }
+
+  void _openFullProfile() {
+    final int? targetId = widget.userData.id;
+    if (targetId == null || targetId == 0) return;
+    context.popRoute();
+    Methods().userProfileNavigator(
+      context: context,
+      user_: const UserEntity(),
+      comesFromRoom: true,
+      userId: targetId.toString(),
+    );
+  }
+
+  void _gift() {
+    Navigator.pop(context);
+    bottomDailog(
+      context: context,
+      barrierColor: ColorManager.transparent,
+      widget: GiftScreen(
+        roomData: widget.roomData,
+        userId: widget.userData.id.toString(),
+        myDataModel: MyDataModel.getInstance(),
+        userImage: widget.userData.image ?? '',
+        userName: widget.userData.name ?? '',
+        users: null,
+        isSingleUser: true,
+        isAudioRoom: true,
+      ),
+    );
+  }
+
+  void _mention() {
+    final name = widget.userData.name?.replaceAll(' ', '_') ?? '';
+    final nav = Navigator.of(context);
+    nav.pop();
+    nav.push(AudioRoomInRoomMessageInputBoard(mention: '@$name'));
+  }
+
+  void _message() {
+    di<FetchUsersChatBloc>().add(
+      UpdateTotalMessages(
+        userId: widget.userData.id.toString(),
+        isIncreased: false,
+      ),
+    );
+    Navigator.pop(context);
+    Navigator.pushNamed(
+      context,
+      Routes.messages,
+      arguments: MessagesParameter(
+        hasColorName: false,
+        isNotFriend: true,
+        name: widget.userData.name ?? '',
+        image: widget.userData.image ?? '',
+        userId: '${widget.userData.id ?? 0}',
+      ),
+    );
+  }
+
+  /// Received / followers / following, compact.
+  Widget _statsRow(BuildContext context, {required bool onDark}) {
+    final valueColor = onDark ? ColorManager.white : ColorManager.momentPostTextColor;
+    final labelColor = onDark
+        ? ColorManager.white.withValues(alpha: 0.85)
+        : const Color(0xFF8E8F96);
+    Widget stat(String value, String label) => Column(
+          children: [
+            Text(
+              value,
+              style: TextStyle(
+                color: valueColor,
+                fontSize: 15.sp,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            2.hBox,
+            Text(
+              label,
+              style: TextStyle(color: labelColor, fontSize: 11.sp),
+            ),
+          ],
+        );
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        stat(
+          Methods.formatCompactNumber(
+            int.tryParse(widget.userData.receiverExp?.toString() ?? '0') ?? 0,
+          ),
+          StringManager.received.tr(),
+        ),
+        stat('${widget.userData.numberOfFriends ?? 0}',
+            StringManager.followers.tr()),
+        stat('${widget.userData.numberOfFollowings ?? 0}',
+            StringManager.followings.tr()),
+      ],
+    );
   }
 
   /// The VIP/profile-frame catalog is fetched once at splash and cached to
@@ -152,6 +270,7 @@ class _NewProfileBodyState extends State<NewProfileBody> {
         vipId = '${vipFrame.id ?? '0'}';
         Methods.printLog(
             '🖼️ [ProfileCardFrame] matched id=$wantedId → image=$vipImage type=$vipType half=$halfImageProfile');
+        _measureFrameBand();
         return;
       }
     }
@@ -160,12 +279,140 @@ class _NewProfileBodyState extends State<NewProfileBody> {
         '(ids=${decoded.map((e) => VipFramesModel.fromJson(e).id).toList()})');
   }
 
+  /// Finds where the frame's body starts (the gold band) and puts the card's
+  /// top edge just above it, so the avatar sits the same ~20px under the band
+  /// on every frame -- SVIP 1, 6, 8... all have differently tall ornaments.
+  /// Still images are decoded; .svga frames are drawn once off-screen.
+  Future<void> _measureFrameBand() async {
+    final src = vipImage;
+    if (src.isEmpty || _measuredFrame == src) return;
+    _measuredFrame = src;
+    if (Methods.isVideoFile(src) ||
+        vipType == 'mp4' ||
+        vipType == 'vap' ||
+        vipType == 'alpha') {
+      return;
+    }
+    try {
+      final ui.Image? image = Methods().isSvgaFile(src)
+          ? await _rasterSvgaFrame(src)
+          : await _decodeStill(src);
+      if (image == null) return;
+      final body = await _bodyStart(image);
+      image.dispose();
+      if (body == null) return;
+      final clear = (body - 0.022).clamp(0.0, 0.75).toDouble();
+      Methods.printLog(
+          '🖼️ [ProfileCardFrame] body at ${body.toStringAsFixed(3)} → clearTop=${clear.toStringAsFixed(3)}');
+      if (mounted && (clear - _frameClearTop).abs() > 0.002) {
+        setState(() => _frameClearTop = clear);
+      }
+    } catch (e) {
+      Methods.printLog('🖼️ [ProfileCardFrame] band measure failed: $e');
+    }
+  }
+
+  Future<ui.Image?> _decodeStill(String src) async {
+    final file =
+        await AssetCacheManager().getCachedAsset(EndPoints.getImage(src));
+    if (file == null) return null;
+    final codec = await ui.instantiateImageCodec(
+      await file.readAsBytes(),
+      targetWidth: 120,
+    );
+    return (await codec.getNextFrame()).image;
+  }
+
+  /// Draws the middle frame of an .svga (bitmap sprites, same transform as
+  /// the player) into a small 120px-wide image.
+  Future<ui.Image?> _rasterSvgaFrame(String src) async {
+    final movie =
+        await SvgaMovieCache.instance.loadFromUrl(EndPoints.getImage(src));
+    if (movie == null) return null;
+    final vbW = movie.params.viewBoxWidth;
+    final vbH = movie.params.viewBoxHeight;
+    if (vbW <= 0 || vbH <= 0) return null;
+    final frames = movie.params.frames;
+    final frame = frames > 1 ? frames ~/ 2 : 0;
+    const outW = 120.0;
+    final scale = outW / vbW;
+    final outH = (vbH * scale).ceil();
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder)..scale(scale);
+    final paint = Paint();
+    for (final sprite in movie.sprites) {
+      final bitmap = movie.bitmapCache[sprite.imageKey];
+      if (bitmap == null || frame >= sprite.frames.length) continue;
+      final f = sprite.frames[frame];
+      if (f.hasAlpha() && f.alpha <= 0.05) continue;
+      canvas.save();
+      if (f.hasTransform()) {
+        final t = f.transform;
+        canvas.transform(Float64List.fromList(<double>[
+          t.a, t.b, 0, 0, //
+          t.c, t.d, 0, 0, //
+          0, 0, 1, 0, //
+          t.tx, t.ty, 0, 1,
+        ]));
+      }
+      canvas.drawImageRect(
+        bitmap,
+        Rect.fromLTWH(0, 0, bitmap.width.toDouble(), bitmap.height.toDouble()),
+        Rect.fromLTWH(0, 0, f.layout.width, f.layout.height),
+        paint,
+      );
+      canvas.restore();
+    }
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(outW.toInt(), outH);
+    picture.dispose();
+    return image;
+  }
+
+  /// Fraction of the height where the frame's solid body starts: the first
+  /// row from which the next 20% of rows all stay >=95% opaque. (Plain "first
+  /// wide row" fails on SVIP 8, whose wings span almost the full width.)
+  Future<double?> _bodyStart(ui.Image image) async {
+    final data = await image.toByteData(format: ui.ImageByteFormat.rawRgba);
+    final w = image.width, h = image.height;
+    if (data == null || w == 0 || h == 0) return null;
+    final full = List<bool>.generate(h, (y) {
+      var opaque = 0;
+      for (var x = 0; x < w; x++) {
+        if (data.getUint8((y * w + x) * 4 + 3) > 200) opaque++;
+      }
+      return opaque >= w * 0.95;
+    });
+    final win = (h * 0.2).round();
+    for (var y = 0; y + win < h; y++) {
+      var ok = true;
+      for (var k = y; k < y + win; k++) {
+        if (!full[k]) {
+          ok = false;
+          y = k; // skip ahead past the gap
+          break;
+        }
+      }
+      if (ok) return y / h;
+    }
+    return null;
+  }
+
   @override
   Widget build(BuildContext context) {
     final hasProfileFrame = (widget.userData.profileFrameId != null &&
         widget.userData.profileFrameId != "" &&
         widget.userData.profileFrameId != "0");
     final screenWidth = ScreenUtil().screenWidth;
+    // A full-card profile frame is dark artwork: text on it must be white.
+    final fullFrame = hasProfileFrame && halfImageProfile == false;
+    final onDark = fullFrame || backgroundColor.value == ColorManager.black;
+    // Full frame: band ends ~4% of the art height below the card top
+    // (~32px on a typical card), then ~20px of breathing room.
+    final avatarGap = fullFrame ? 54.h : 50.h;
+    // Where the avatar block starts inside the card (padding + gap).
+    final avatarTop = (fullFrame ? 0.0 : 35.h) + avatarGap;
+    final actionLabel = onDark ? ColorManager.white : const Color(0xFF6B6C74);
     bool isOnSeat = RoomData.instance.utdController?.seatController
             .isUserOnSeat(widget.userData.id.toString()) ??
         false;
@@ -177,7 +424,7 @@ class _NewProfileBodyState extends State<NewProfileBody> {
                 ? ColorManager.transparent
                 : ColorManager.whiteGrey;
 
-    Widget buildProfileFrame({required bool ignorePointer}) {
+    Widget buildProfileFrame({required bool ignorePointer, double? height}) {
       // No VIP frame: render nothing. An empty-url image here would fire
       // detectError and flip backgroundColor to black (black-on-black button).
       if (vipImage.isEmpty) return const SizedBox.shrink();
@@ -186,6 +433,7 @@ class _NewProfileBodyState extends State<NewProfileBody> {
               url: vipImage,
               boxFit: BoxFit.fill,
               width: screenWidth,
+              height: height,
               detectError: () {
                 backgroundColor.value = ColorManager.black;
               },
@@ -194,6 +442,7 @@ class _NewProfileBodyState extends State<NewProfileBody> {
               ? CacheVideoWidget(
                   videoUrl: vipImage,
                   width: screenWidth,
+                  height: height,
                   isReels: true,
                   detectError: () {
                     backgroundColor.value = ColorManager.black;
@@ -204,6 +453,7 @@ class _NewProfileBodyState extends State<NewProfileBody> {
                       isLoop: true,
                       url: vipImage,
                       width: screenWidth,
+                      height: height,
                       detectError: () {
                         backgroundColor.value = ColorManager.black;
                       },
@@ -212,6 +462,7 @@ class _NewProfileBodyState extends State<NewProfileBody> {
                       ? CacheAlphaWidget(
                           url: vipImage,
                           width: screenWidth,
+                          height: height,
                           isLoop: true,
                           detectError: () {
                             backgroundColor.value = ColorManager.black;
@@ -219,8 +470,9 @@ class _NewProfileBodyState extends State<NewProfileBody> {
                         )
                       : ImageViewWidget(
                           url: vipImage,
-                          boxFit: BoxFit.cover,
+                          boxFit: height != null ? BoxFit.fill : BoxFit.cover,
                           width: screenWidth,
+                          height: height,
                           heightLoading: 100.h,
                           widthLoading: screenWidth,
                           isRoomProfile: true,
@@ -235,75 +487,95 @@ class _NewProfileBodyState extends State<NewProfileBody> {
       if (!ignorePointer) {
         return frameWidget;
       }
-      return Positioned(
-        top: -70.h,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        child: IgnorePointer(child: frameWidget),
-      );
+      return frameWidget;
     }
 
     return ConstrainedBox(
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.sizeOf(context).height * 0.75,
+        maxHeight: MediaQuery.sizeOf(context).height * 0.95,
         minHeight: 300.h,
       ),
       child: Stack(
         clipBehavior: Clip.none,
         children: [
-          if (hasProfileFrame && halfImageProfile == false)
-            buildProfileFrame(ignorePointer: true),
+          // Full-card frame. The profile-frame artwork is mostly transparent
+          // at the top: its ornaments start at ~34.5% of its height and the
+          // gold band ends at ~38.3% (measured on the 750x1437 art). So the
+          // art is sized so that transparent part hangs ABOVE the card, the
+          // band lands right at the card's top edge, and the avatar (placed
+          // by avatarGap) sits ~20px under the band, inside the frame.
+          if (fullFrame)
+            Positioned.fill(
+              child: IgnorePointer(
+                child: LayoutBuilder(
+                  builder: (context, box) {
+                    final frameH = box.maxHeight / (1 - _frameClearTop);
+                    return OverflowBox(
+                      alignment: Alignment.bottomCenter,
+                      minWidth: box.maxWidth,
+                      maxWidth: box.maxWidth,
+                      minHeight: frameH,
+                      maxHeight: frameH,
+                      child: buildProfileFrame(
+                        ignorePointer: true,
+                        height: frameH,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
           ValueListenableBuilder(
               valueListenable: backgroundColor,
               builder: (context, value, child) {
                 return Container(
                   decoration: BoxDecoration(
-                    color: value,
+                    // Soft pink-to-white sheet when there is no full-card
+                    // profile frame behind it.
+                    color: value == ColorManager.whiteGrey ? null : value,
+                    gradient: value == ColorManager.whiteGrey
+                        ? const LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: [Color(0xFFFFE1E8), Colors.white],
+                            stops: [0, .45],
+                          )
+                        : null,
                     borderRadius:
-                        BorderRadius.vertical(top: Radius.circular(10.r)),
+                        BorderRadius.vertical(top: Radius.circular(18.r)),
                   ),
                   child: SingleChildScrollView(
+                    // Card grows with its content; nothing scrolls inside.
+                    physics: const NeverScrollableScrollPhysics(),
                     padding: context.paddingOnly(
                       start: 0,
-                      top: backgroundColor.value != ColorManager.black
-                          ? halfImageProfile == true
-                              ? 35
-                              : (hasProfileFrame && halfImageProfile == false)
-                                  ? 120
-                                  : 35
-                          : 35,
+                      top: fullFrame ? 0 : 35,
                       end: 0,
                     ),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        // Nudged further down on request.
-                        60.verticalSpace,
-                        InkWell(
-                          onTap: () {
-                            final int? targetId = widget.userData.id;
-                            if (targetId == null || targetId == 0) return;
-                            context.popRoute();
-                            Methods().userProfileNavigator(
-                              context: context,
-                              user_: const UserEntity(),
-                              comesFromRoom: true,
-                              userId: targetId.toString(),
-                            );
-                          },
-                          child: UserImage(
+                        // Gap above the avatar: on a full frame it clears
+                        // the frame's top border by ~20px.
+                        SizedBox(height: avatarGap),
+                        BlocBuilder<FetchExtraDataBloc, FetchExtraDataStates>(
+                          bloc: _fetchExtraDataBloc,
+                          buildWhen: (prev, curr) =>
+                              prev.extraProfileData != curr.extraProfileData,
+                          builder: (context, extra) => ProfileAvatarPair(
                             image: widget.userData.image ?? '',
-                            displayName: widget.userData.name ?? '',
-                            imageSize: 80,
+                            name: widget.userData.name ?? '',
                             frame: widget.userData.frame,
                             frameType: widget.userData.frameType,
-                            frameSize: 125,
+                            cp: extra.extraProfileData?.cp,
+                            onTap: _openFullProfile,
                           ),
                         ),
-                        10.hBox,
-                        GradientTextVip(
-                          width: 150.w,
+                        8.hBox,
+                        // Bigger name with a light shine sweeping over it.
+                        NameShine(
+                          child: GradientTextVip(
+                          width: 220.w,
                           isVip: widget.userData.vipColorName != null &&
                               (widget.userData.vipColorName ?? '')
                                   .startsWith('#'),
@@ -313,23 +585,16 @@ class _NewProfileBodyState extends State<NewProfileBody> {
                               ColorManager.blackColor,
                           mainAxisAlignment: MainAxisAlignment.start,
                           textAlign: TextAlign.center,
-                          textStyle: context.bodyMedium.w500.size(18).colorExt(
+                          textStyle: context.bodyMedium.w700.size(22).colorExt(
                               Methods.safeHexColor(
                                       widget.userData.vipColorName) ??
                                   ColorManager.blackColor),
+                          ),
                         ),
                         5.hBox,
                         Row(
                           children: [
                             const Spacer(),
-                            if (widget.userData.isCountryHidden != true)
-                              if (widget.userData.countryImage != null)
-                                ImageViewWidget(
-                                  url: widget.userData.countryImage ?? "",
-                                  height: 20.h,
-                                  width: 25.w,
-                                  boxFit: BoxFit.cover,
-                                ),
                             5.wBox,
                             IdWithCopyIcon(
                               userId: widget.userData.uuid ?? '',
@@ -343,7 +608,9 @@ class _NewProfileBodyState extends State<NewProfileBody> {
                               color: widget.userData.imageColorEntity?.color,
                               img: widget.userData.imageColorEntity?.image,
                               mainAxisAlignment: MainAxisAlignment.start,
-                              idColor: ColorManager.greyTextColor,
+                              idColor: onDark
+                                  ? ColorManager.white
+                                  : ColorManager.greyTextColor,
                               idStyle: context.bodyMedium.bold
                                   .colorExt(
                                       widget.userData.imageColorEntity?.color !=
@@ -358,384 +625,239 @@ class _NewProfileBodyState extends State<NewProfileBody> {
                                                       '')
                                                   .replaceAll('#', '0xff')) ??
                                               0xFF000000)
-                                          : ColorManager.black)
-                                  .copyWith(height: 0.1, fontSize: 11.sp),
+                                          : onDark
+                                              ? ColorManager.white
+                                              : ColorManager.black)
+                                  .copyWith(height: 0.1, fontSize: 13.sp),
                             ),
                             const Spacer(),
                           ],
+                        ),
+                        10.hBox,
+                        // Level / VIP / gender, then badges, then medals.
+                        Wrap(
+                          spacing: 6.w,
+                          runSpacing: 4.h,
+                          alignment: WrapAlignment.center,
+                          crossAxisAlignment: WrapCrossAlignment.center,
+                          children: [
+                            if (widget.userData.isCountryHidden != true &&
+                                (widget.userData.countryImage ?? '')
+                                    .isNotEmpty)
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(3.r),
+                                child: ImageViewWidget(
+                                  url: widget.userData.countryImage ?? "",
+                                  height: 16.h,
+                                  width: 22.w,
+                                  boxFit: BoxFit.cover,
+                                ),
+                              ),
+                            GenderWidget(
+                              age: widget.userData.age ?? 0,
+                              gender: widget.userData.gender ?? 0,
+                              widthSize: 40,
+                            ),
+                            if (widget.userData.senderLevelImage?.isNotEmpty ==
+                                true)
+                              LevelContainer(
+                                image: widget.userData.senderLevelImage ?? '',
+                              ),
+                            if (widget.userData.receiverLevelImage
+                                    ?.isNotEmpty ==
+                                true)
+                              LevelContainer(
+                                image:
+                                    widget.userData.receiverLevelImage ?? '',
+                              ),
+                            if (widget.userData.vipImage?.isNotEmpty == true)
+                              VipContainer(
+                                vip: widget.userData.vipImage ?? '',
+                                height: 20.h,
+                                width: 38.w,
+                              ),
+                          ],
+                        ),
+                        8.hBox,
+                        BlocBuilder<GetUserBadgesBloc, GetUserBadgesState>(
+                          bloc: getUserBadgesBloc,
+                          buildWhen: (prev, curr) =>
+                              prev.userBadge != curr.userBadge,
+                          builder: (context, state) {
+                            final badges = [
+                              ...(state.userBadge?.top ?? []),
+                              ...(state.userBadge?.regular ?? []),
+                            ];
+                            if (badges.isEmpty) return const SizedBox.shrink();
+                            return Padding(
+                              padding: EdgeInsets.only(bottom: 6.h),
+                              child: Wrap(
+                                spacing: 6.w,
+                                runSpacing: 4.h,
+                                alignment: WrapAlignment.center,
+                                children: [
+                                  for (final b in badges)
+                                    b.imageType == 'svga'
+                                        ? CacheSvgaWidget(
+                                            url: EndPoints.getImage(b.image),
+                                            boxFit: BoxFit.fill,
+                                            height: 22.h,
+                                            width: 60.h,
+                                          )
+                                        : CacheImageWidget(
+                                            url: EndPoints.getImage(b.image),
+                                            height: 22.h,
+                                            width: 60.w,
+                                            boxFit: BoxFit.fill,
+                                          ),
+                                ],
+                              ),
+                            );
+                          },
                         ),
                         BlocBuilder<FetchExtraDataBloc, FetchExtraDataStates>(
                           bloc: _fetchExtraDataBloc,
                           buildWhen: (prev, curr) =>
                               prev.extraProfileData != curr.extraProfileData,
-                          builder: (context, extraDataState) {
-                            return BlocBuilder<GetUserBadgesBloc,
-                                GetUserBadgesState>(
-                              bloc: getUserBadgesBloc,
-                              buildWhen: (prev, curr) =>
-                                  prev.userBadge != curr.userBadge,
-                              builder: (context, state) {
-                                final userBadgesData = [
-                                  ...(state.userBadge?.top ?? []),
-                                  ...(state.userBadge?.regular ?? []),
-                                ];
-                                final userMedals = [
-                                  ...(extraDataState.extraProfileData
-                                          ?.achievementImages ??
-                                      []),
-                                ];
-                                return SizedBox(
-                                  width: MediaQuery.sizeOf(context).width * 0.8,
-                                  child: Wrap(
-                                    spacing: 5.w,
-                                    runSpacing: 3.h,
-                                    alignment: WrapAlignment.center,
-                                    crossAxisAlignment:
-                                        WrapCrossAlignment.center,
-                                    children: [
-                                      if (userMedals.isNotEmpty)
-                                        ...userMedals.map(
-                                          (badgeData) {
-                                            return badgeData.contains(".svg")
-                                                ? CacheSvgaWidget(
-                                                    url: EndPoints.getImage(
-                                                        badgeData),
-                                                    boxFit: BoxFit.cover,
-                                                    height: 25.h,
-                                                    width: 25.h,
-                                                  )
-                                                : CacheImageWidget(
-                                                    url: EndPoints.getImage(
-                                                        badgeData),
-                                                    height: 25.h,
-                                                    width: 25.w,
-                                                    boxFit: BoxFit.cover,
-                                                  );
-                                          },
+                          builder: (context, extra) {
+                            final medals =
+                                extra.extraProfileData?.achievementImages ??
+                                    const <String>[];
+                            if (medals.isEmpty) return const SizedBox.shrink();
+                            return Padding(
+                              padding: EdgeInsets.only(top: 8.h),
+                              child: Wrap(
+                              spacing: 10.w,
+                              runSpacing: 4.h,
+                              alignment: WrapAlignment.center,
+                              children: [
+                                for (final m in medals)
+                                  m.contains('.svg')
+                                      ? CacheSvgaWidget(
+                                          url: EndPoints.getImage(m),
+                                          boxFit: BoxFit.cover,
+                                          height: 54.h,
+                                          width: 54.h,
+                                        )
+                                      : CacheImageWidget(
+                                          url: EndPoints.getImage(m),
+                                          height: 54.h,
+                                          width: 54.h,
+                                          boxFit: BoxFit.cover,
                                         ),
-                                      // VIP Container
-                                      if (widget.userData.vipImage?.isNotEmpty == true)
-                                        VipContainer(
-                                          vip: widget.userData.vipImage ?? "",
-                                          height: 20.h,
-                                          width: 38.w,
-                                        ),
-
-                                      // Sender Level Container
-                                      if (widget.userData.senderLevelImage?.isNotEmpty == true)
-                                        LevelContainer(
-                                          image: widget
-                                                  .userData.senderLevelImage ??
-                                              "",
-                                        ),
-
-                                      // Receiver Level Container
-                                      if (widget.userData.receiverLevelImage?.isNotEmpty == true)
-                                        LevelContainer(
-                                          image: widget.userData
-                                                  .receiverLevelImage ??
-                                              "",
-                                        ),
-
-                                      GenderWidget(
-                                        age: widget.userData.age ?? 0,
-                                        gender: widget.userData.gender ?? 0,
-                                        widthSize: 40,
-                                      ),
-                                      // User badges from BlocBuilder
-                                      if (userBadgesData.isNotEmpty)
-                                        ...userBadgesData.map(
-                                          (badgeData) {
-                                            return badgeData.imageType == "svga"
-                                                ? CacheSvgaWidget(
-                                                    url: EndPoints.getImage(
-                                                        badgeData.image),
-                                                    boxFit: BoxFit.fill,
-                                                    height: 20.h,
-                                                    width: 60.h,
-                                                  )
-                                                : CacheImageWidget(
-                                                    url: EndPoints.getImage(
-                                                        badgeData.image),
-                                                    height: 20.h,
-                                                    width: 60.w,
-                                                    boxFit: BoxFit.fill,
-                                                  );
-                                          },
-                                        ),
-                                    ],
-                                  ),
-                                );
-                              },
+                              ],
+                              ),
                             );
                           },
                         ),
+                        12.hBox,
+                        _statsRow(context, onDark: onDark),
+                        12.hBox,
+                        // Gift Sender Top3 + agency cards.
                         Padding(
-                          padding: context.paddingSymmetric(
-                            horizontal: 20.w,
-                            vertical: 10.h,
-                          ),
-                          child: Column(
+                          padding: EdgeInsets.symmetric(horizontal: 16.w),
+                          child: Row(
                             children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  Column(
-                                    children: [
-                                      TextWidget(
-                                        Methods.formatCompactNumber(
-                                          int.tryParse(
-                                            widget.userData.receiverExp
-                                                    ?.toString() ??
-                                                '0',
-                                          ) ?? 0,
-                                        ),
-                                        style: context.bodyMedium.bold
-                                            .colorExt(ColorManager.momentPostTextColor),
-                                      ),
-                                      5.hBox,
-                                      TextWidget(
-                                        StringManager.received.tr(),
-                                        style: context.bodySmall
-                                            .colorExt(ColorManager.momentPostTextColor),
-                                      ),
-                                    ],
-                                  ),
-                                  Column(
-                                    children: [
-                                      TextWidget(
-                                        widget.userData.numberOfFriends
-                                                ?.toString() ??
-                                            '0',
-                                        style: context.bodyMedium.bold
-                                            .colorExt(ColorManager.momentPostTextColor),
-                                      ),
-                                      5.hBox,
-                                      TextWidget(
-                                        StringManager.followers.tr(),
-                                        style: context.bodySmall
-                                            .colorExt(ColorManager.momentPostTextColor),
-                                      ),
-                                    ],
-                                  ),
-                                  Column(
-                                    children: [
-                                      TextWidget(
-                                        widget.userData.numberOfFollowings
-                                                ?.toString() ??
-                                            '0',
-                                        style: context.bodyMedium.bold
-                                            .colorExt(ColorManager.momentPostTextColor),
-                                      ),
-                                      5.hBox,
-                                      TextWidget(
-                                        StringManager.followings.tr(),
-                                        style: context.bodySmall
-                                            .colorExt(ColorManager.momentPostTextColor),
-                                      ),
-                                    ],
-                                  ),
-                                ],
+                              Expanded(
+                                child: BlocBuilder<GetSupporterBloc,
+                                    GetUserSupporterState>(
+                                  bloc: _supporterBloc,
+                                  builder: (context, state) {
+                                    final support = state.topSupport;
+                                    final top = [
+                                      ...?support?.topUser,
+                                      ...?support?.otherUsers,
+                                    ].take(3).toList();
+                                    return ProfileTopSendersCard(top: top);
+                                  },
+                                ),
                               ),
-                              10.hBox,
                               if (widget.userData.myAgency != null &&
                                   widget.userData.myAgency?.id != null &&
-                                  widget.userData.myAgency?.id != 0)
-                                Container(
-                                  decoration: BoxDecoration(
-                                    image: DecorationImage(
-                                      image: AssetImage(
-                                        AssetsManager.agencyRoomProfileBG,
-                                      ),
-                                      fit: BoxFit.fill,
-                                    ),
-                                  ),
-                                  child: Padding(
-                                    padding: const EdgeInsets.all(7),
-                                    child: Row(
-                                      children: [
-                                        CacheImageWidget(
-                                          url: EndPoints.getImage(
-                                              widget.userData.myAgency?.img ??
-                                                  ''),
-                                          displayName:
-                                              widget.userData.myAgency?.name ??
-                                                  '',
-                                          height: 60.h,
-                                          width: 60.w,
-                                          radius: 8.r,
-                                          boxFit: BoxFit.cover,
-                                        ),
-                                        10.wBox,
-                                        Column(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            TextWidget(
-                                              widget.userData.myAgency?.name ??
-                                                  '',
-                                              style: context.bodyMedium.bold
-                                                  .colorExt(Colors.brown),
-                                            ),
-                                            5.hBox,
-                                            IdWithCopyIcon(
-                                              userId: widget
-                                                      .userData.myAgency?.id
-                                                      .toString() ??
-                                                  '',
-                                              isNeedCopyIcon: false,
-                                              mainAxisAlignment:
-                                                  MainAxisAlignment.start,
-                                              idColor: Colors.brown,
-                                              idStyle: context.bodyMedium.w300
-                                                  .colorExt(Colors.brown)
-                                                  .copyWith(
-                                                      height: 0.1,
-                                                      fontSize: 11.sp),
-                                            ),
-                                          ],
-                                        ),
-                                      ],
-                                    ),
+                                  widget.userData.myAgency?.id != 0) ...[
+                                10.wBox,
+                                Expanded(
+                                  child: ProfileAgencyCard(
+                                    image: widget.userData.myAgency?.img ?? '',
+                                    name: widget.userData.myAgency?.name ?? '',
+                                    id: '${widget.userData.myAgency?.id ?? ''}',
                                   ),
                                 ),
-                              10.hBox,
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceAround,
-                                children: [
-                                  if (widget.userData.id !=
-                                      MyDataModel.getInstance().id)
-                                    BlocBuilder<FetchExtraDataBloc,
-                                        FetchExtraDataStates>(
-                                      bloc: _fetchExtraDataBloc,
-                                      builder: (context, state) {
-                                        if (state.extraProfileData != null) {
-                                          return NewFollowButton(
-                                            userData: widget.userData,
-                                            initialIsFollow: state
-                                                    .extraProfileData
-                                                    ?.isFollow ??
+                              ],
+                            ],
+                          ),
+                        ),
+                        16.hBox,
+                        // Actions: follow (heart), @, message, gift -- or
+                        // profile / leave seat on your own sheet.
+                        Padding(
+                          padding: EdgeInsets.only(bottom: 14.h),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: [
+                              if (widget.userData.id !=
+                                  MyDataModel.getInstance().id)
+                                BlocBuilder<FetchExtraDataBloc,
+                                    FetchExtraDataStates>(
+                                  bloc: _fetchExtraDataBloc,
+                                  builder: (context, state) {
+                                    if (state.extraProfileData != null) {
+                                      return NewFollowButton(
+                                        userData: widget.userData,
+                                        initialIsFollow:
+                                            state.extraProfileData?.isFollow ??
                                                 false,
-                                            followBloc: _followBloc,
-                                          );
-                                        } else if (state.requestState.isError || state.requestState == RequestState.offline) {
-                                          return const SizedBox();
-                                        } else {
-                                          return SizedBox(
-                                            width: 100.w,
-                                            height: 35.h,
-                                            child: const Center(
-                                              child: SizedBox(
-                                                width: 20,
-                                                height: 20,
-                                                child:
-                                                    CircularProgressIndicator(
-                                                  strokeWidth: 2,
-                                                  color: ColorManager.black,
-                                                ),
-                                              ),
-                                            ),
-                                          );
-                                        }
-                                      },
-                                    ),
-                                  if (widget.userData.id !=
-                                      MyDataModel.getInstance().id)
-                                    ProfileButtomWidget(
-                                      context: context,
-                                      title: StringManager.gift.tr(),
-                                      onTap: () {
-                                        Navigator.pop(context);
-                                        bottomDailog(
-                                          context: context,
-                                          barrierColor:
-                                              ColorManager.transparent,
-                                          widget: GiftScreen(
-                                            roomData: widget.roomData,
-                                            userId:
-                                                widget.userData.id.toString(),
-                                            myDataModel:
-                                                MyDataModel.getInstance(),
-                                            userImage:
-                                                widget.userData.image ?? '',
-                                            userName:
-                                                widget.userData.name ?? '',
-                                            users: null,
-                                            isSingleUser: true,
-                                            isAudioRoom: true,
+                                        followBloc: _followBloc,
+                                        heartStyle: true,
+                                      );
+                                    } else if (state.requestState.isError ||
+                                        state.requestState ==
+                                            RequestState.offline) {
+                                      return const SizedBox();
+                                    }
+                                    return SizedBox(
+                                      width: 46.w,
+                                      height: 46.w,
+                                      child: const Center(
+                                        child: SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                            strokeWidth: 2,
+                                            color: ColorManager.black,
                                           ),
-                                        );
-                                      },
-                                      image: AssetsManager.roomProfileSendGift,
-                                    ),
-                                  if (widget.userData.id ==
-                                      MyDataModel.getInstance().id)
-                                    ProfileButtomWidget(
-                                      context: context,
-                                      title: StringManager.profile.tr(),
-                                      onTap: () {
-                                        final int? targetId = widget.userData.id;
-                                        if (targetId == null || targetId == 0) return;
-                                        context.popRoute();
-                                        Methods().userProfileNavigator(
-                                          context: context,
-                                          user_: const UserEntity(),
-                                          comesFromRoom: true,
-                                          userId: targetId.toString(),
-                                        );
-                                      },
-                                      image: AssetsManager.homeNew,
-                                    ),
-                                  if (widget.userData.id !=
-                                      MyDataModel.getInstance().id)
-                                    ProfileButtomWidget(
-                                      context: context,
-                                      title: "Ta@",
-                                      onTap: () {
-                                        String name = widget.userData.name
-                                                ?.replaceAll(" ", "_") ??
-                                            "";
-                                        final nav = Navigator.of(context);
-                                        nav.pop();
-                                        nav.push(
-                                          AudioRoomInRoomMessageInputBoard(
-                                            mention: "@$name",
-                                          ),
-                                        );
-                                      },
-                                      image: AssetsManager.mentionNew,
-                                    ),
-                                  if (widget.userData.id !=
-                                      MyDataModel.getInstance().id)
-                                    ProfileButtomWidget(
-                                      context: context,
-                                      title: StringManager.message.tr(),
-                                      onTap: () {
-                                        di<FetchUsersChatBloc>().add(
-                                          UpdateTotalMessages(
-                                            userId:
-                                                widget.userData.id.toString(),
-                                            isIncreased: false,
-                                          ),
-                                        );
-                                        Navigator.pop(context);
-                                        Navigator.pushNamed(
-                                          context,
-                                          Routes.messages,
-                                          arguments: MessagesParameter(
-                                            hasColorName: false,
-                                            isNotFriend: true,
-                                            name: widget.userData.name ?? '',
-                                            image: widget.userData.image ?? '',
-                                            userId:
-                                                '${widget.userData.id ?? 0}',
-                                          ),
-                                        );
-                                      },
-                                      image: AssetsManager.messageNew,
-                                    ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              if (widget.userData.id !=
+                                  MyDataModel.getInstance().id) ...[
+                                ProfileRoundAction(
+                                  icon: Icons.alternate_email_rounded,
+                                  color: const Color(0xFF1FBF8F),
+                                  onTap: _mention,
+                                ),
+                                ProfileRoundAction(
+                                  icon: Icons.chat_bubble_rounded,
+                                  color: const Color(0xFF2F8CFF),
+                                  onTap: _message,
+                                ),
+                                ProfileRoundAction(
+                                  icon: Icons.card_giftcard_rounded,
+                                  color: const Color(0xFFF5A623),
+                                  onTap: _gift,
+                                ),
+                              ],
+                              if (widget.userData.id ==
+                                  MyDataModel.getInstance().id)
+                                ProfileRoundAction(
+                                  icon: Icons.person_rounded,
+                                  color: const Color(0xFF7B61FF),
+                                  label: StringManager.profile.tr(),
+                                  labelColor: actionLabel,
+                                  onTap: _openFullProfile,
+                                ),
                                   if (((widget.roomData.ownerId ==
                                                   MyDataModel.getInstance()
                                                       .id &&
@@ -767,6 +889,7 @@ class _NewProfileBodyState extends State<NewProfileBody> {
                                           context: context,
                                           title:
                                               StringManager.leaveSeat.tr(),
+                                          titleColor: actionLabel,
                                           onTap: () async {
                                             if (widget.userData.id ==
                                                 MyDataModel.getInstance()
@@ -812,8 +935,6 @@ class _NewProfileBodyState extends State<NewProfileBody> {
                                         )
                                       ],
                                     ),
-                                ],
-                              ),
                             ],
                           ),
                         ),
@@ -822,11 +943,40 @@ class _NewProfileBodyState extends State<NewProfileBody> {
                   ),
                 );
               }),
+          // Right edge, level with the name: Gift Wall, and the family
+          // straight underneath it.
+          Positioned(
+            right: 0,
+            top: avatarTop + 168.w,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                ProfileGiftWallChip(
+                  userId: widget.userId,
+                  name: widget.userData.name ?? '',
+                ),
+                BlocBuilder<FetchExtraDataBloc, FetchExtraDataStates>(
+                  bloc: _fetchExtraDataBloc,
+                  buildWhen: (prev, curr) =>
+                      prev.extraProfileData != curr.extraProfileData,
+                  builder: (context, extra) {
+                    final family = extra.extraProfileData?.familyData;
+                    if (family == null || (family.id ?? 0) == 0) {
+                      return const SizedBox.shrink();
+                    }
+                    return Padding(
+                      padding: EdgeInsets.only(top: 12.h),
+                      child: ProfileFamilyChip(family: family),
+                    );
+                  },
+                ),
+              ],
+            ),
+          ),
           if (MyDataModel.getInstance().id != widget.userData.id)
             Positioned(
               right: 30.w,
-              top:
-                  (hasProfileFrame && halfImageProfile == false) ? 110.h : 15.h,
+              top: fullFrame ? avatarTop : 15.h,
               child: NewProfilePermissionMenu(
                 roomData: widget.roomData,
                 halfImageProfile: halfImageProfile,
@@ -851,6 +1001,7 @@ Widget ProfileButtomWidget(
     {required BuildContext context,
     required String title,
     int? size,
+    Color? titleColor,
     required VoidCallback onTap,
     required String image}) {
   return GestureDetector(
@@ -866,7 +1017,8 @@ Widget ProfileButtomWidget(
         5.hBox,
         Text(
           title,
-          style: context.bodySmall.colorExt(ColorManager.momentPostTextColor),
+          style: context.bodySmall
+              .colorExt(titleColor ?? ColorManager.momentPostTextColor),
         ),
       ],
     ),

@@ -9,6 +9,7 @@ class SuccessTransferScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       extendBodyBehindAppBar: true,
       resizeToAvoidBottomInset: false,
       appBar: AppBarWidget(
@@ -32,7 +33,7 @@ class SuccessTransferScreen extends StatelessWidget {
               TextWidget(
                 StringManager.transferSuccessHint.tr(),
                 textAlign: TextAlign.center,
-                style: context.bodyMedium.size(13).colorExt(ColorManager.secondaryText),
+                style: context.bodyMedium.size(13).colorExt(ColorManager.grey),
               ),
               Padding(
                 padding: context.paddingSymmetric(vertical: 20),
@@ -48,7 +49,7 @@ class SuccessTransferScreen extends StatelessWidget {
                   children: [
                     TextWidget(
                       StringManager.transferAmount.tr(),
-                      style: context.bodyMedium.colorExt(ColorManager.secondaryText),
+                      style: context.bodyMedium.colorExt(ColorManager.grey),
                     ),
                     param.isCoins
                         ? Row(

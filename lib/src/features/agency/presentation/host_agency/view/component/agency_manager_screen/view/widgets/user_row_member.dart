@@ -13,7 +13,9 @@ class UserRowMember extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      margin: EdgeInsets.symmetric(vertical: 5.h),
       padding: context.paddingAll(10),
+      decoration: AgencyUI.card(),
       child: InkWell(
         onTap: () {
           Methods().userProfileNavigator(
@@ -61,7 +63,10 @@ class UserRowMember extends StatelessWidget {
                       ),
                   ],
                 ),
-                TextWidget('ID: ${agencyMemberModel.uuid}'),
+                TextWidget(
+                  'ID: ${agencyMemberModel.uuid}',
+                  style: context.bodySmall.colorExt(AgencyUI.muted),
+                ),
               ],
             ),
             const Spacer(),

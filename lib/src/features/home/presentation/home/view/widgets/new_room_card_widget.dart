@@ -22,8 +22,13 @@ class NewRoomCardWidget extends StatelessWidget {
   const NewRoomCardWidget({
     required this.roomEntity,
     required this.isShowSVGA,
+    this.rank,
     super.key,
   });
+
+  /// 1-based position in the top block; picks the TOP1/2/3 frame. Cards past
+  /// 3 (or with no rank) get no frame.
+  final int? rank;
 
   @override
   Widget build(BuildContext context) {
@@ -107,7 +112,7 @@ class NewRoomCardWidget extends StatelessWidget {
             ),
           ),
           // SVGA overlay
-          if (isShowSVGA)
+          if (isShowSVGA && rank != null && rank! >= 1 && rank! <= 3)
             Positioned(
               top: -15.h,
               right: -10.w,
@@ -117,7 +122,7 @@ class NewRoomCardWidget extends StatelessWidget {
                 height: ScreenUtil().screenWidth,
                 width: ScreenUtil().screenWidth,
                 child: ShowSVGA(
-                  svgaAssetPath: AssetsManager.grid1,
+                  svgaAssetPath: AssetsManager.roomCardTopFrames[rank! - 1],
                   fit: BoxFit.fill,
                 ),
               ),

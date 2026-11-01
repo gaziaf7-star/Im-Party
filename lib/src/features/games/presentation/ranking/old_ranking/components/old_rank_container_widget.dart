@@ -22,51 +22,28 @@ class OldRankContainerWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      children: [
-        Container(
-          width: MediaQuery.sizeOf(context).width,
-          height: (usersRank?.otherUsersEntity ?? []).isEmpty ||
-                  (usersRank?.otherUsersEntity ?? []).length <= 3
-              ? 280.h
-              : null,
-          decoration: BoxDecoration(
-            color: ColorManager.white,
-            border: Border.all(color: ColorManager.white),
-            borderRadius: BorderRadius.only(
-              topLeft: 20.radiusCircular,
-              topRight: 20.radiusCircular,
+    final others = usersRank?.otherUsersEntity ?? const [];
+    return RankListPanel(
+      child: others.isEmpty
+          ? const HandlingDataWidget(
+              reqState: RequestState.empty,
+              title: "NO Data",
+              subTitle: "",
+              child: SizedBox.shrink())
+          : ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: EdgeInsets.zero,
+              itemCount: others.length,
+              itemBuilder: (context, index) => OldUserInfoRankWidget(
+                index: index + 4,
+                userTopEntity: others[index],
+                isRoom: isRankRoom,
+                isWealth: isWealth,
+                isCharm: isCharm,
+                isSender: isSender,
+              ),
             ),
-          ),
-          child: usersRank?.otherUsersEntity.isEmpty ?? false
-              ?  const HandlingDataWidget(
-                  reqState: RequestState.empty,
-                  title: "NO Data",
-                  subTitle: "",
-                  child: SizedBox.shrink())
-              : ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: context.paddingOnly(
-                    bottom: 10.h,
-                    top: isRankRoom ? 20 : 0,
-                    start: 10,
-                    end: 10,
-                  ),
-                  itemBuilder: (context, index) {
-                    return OldUserInfoRankWidget(
-                      index: index + 4,
-                      userTopEntity: usersRank?.otherUsersEntity[index],
-                      isRoom: isRankRoom,
-                      isWealth: isWealth,
-                      isCharm: isCharm,
-                      isSender: isSender,
-                    );
-                  },
-                  itemCount: usersRank?.otherUsersEntity.length ?? 0,
-                ),
-        ),
-      ],
     );
   }
 }

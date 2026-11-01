@@ -177,7 +177,7 @@ class CpBloc extends Bloc<CpEvents, CpStates> {
       ) async {
     emit(state.copyWith(cpLoveDState: RequestState.loading));
     final result = await _fetchRankingCpUC(
-      const TopParameter(sendOrReceiver: 'lovely', isHome: '0', date: '1'),
+      const TopParameter(sendOrReceiver: 'cp', isHome: '0', date: '1'),
     );
     result.fold(
           (failure) => emit(
@@ -201,7 +201,7 @@ class CpBloc extends Bloc<CpEvents, CpStates> {
       ) async {
     emit(state.copyWith(cpLoveWState: RequestState.loading));
     final result = await _fetchRankingCpUC(
-      const TopParameter(sendOrReceiver: 'lovely', isHome: '0', date: '2'),
+      const TopParameter(sendOrReceiver: 'cp', isHome: '0', date: '2'),
     );
     result.fold(
           (failure) => emit(
@@ -225,7 +225,7 @@ class CpBloc extends Bloc<CpEvents, CpStates> {
       ) async {
     emit(state.copyWith(cpLoveMState: RequestState.loading));
     final result = await _fetchRankingCpUC(
-      const TopParameter(sendOrReceiver: 'lovely', isHome: '0', date: '3'),
+      const TopParameter(sendOrReceiver: 'cp', isHome: '0', date: '3'),
     );
     result.fold(
           (failure) => emit(

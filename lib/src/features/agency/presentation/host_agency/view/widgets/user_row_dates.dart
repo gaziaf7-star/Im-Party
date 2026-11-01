@@ -47,14 +47,12 @@ class UserRowDatas extends StatelessWidget {
         width: ScreenUtil().screenWidth,
         padding: context.paddingOnly(
           start: 10,
-          top: 5,
-          bottom: 5,
-          end: 20,
+          top: 10,
+          bottom: 10,
+          end: 12,
         ),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(15),
-          // color: ColorManager.veryLightBlack,
-        ),
+        margin: EdgeInsets.symmetric(vertical: 5.h),
+        decoration: AgencyUI.card(),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [

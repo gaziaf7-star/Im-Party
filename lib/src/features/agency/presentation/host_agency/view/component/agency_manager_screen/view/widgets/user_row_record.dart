@@ -14,7 +14,9 @@ class UserRowRecord extends StatelessWidget {
         );
       },
       child: Container(
-        padding: context.paddingSymmetric(horizontal: 10, vertical: 5),
+        margin: EdgeInsets.symmetric(vertical: 5.h),
+        padding: context.paddingSymmetric(horizontal: 10, vertical: 10),
+        decoration: AgencyUI.card(),
         child: Row(
          // mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -57,7 +59,21 @@ class UserRowRecord extends StatelessWidget {
               ],
             ),
             const Spacer(),
-            TextWidget(userDataModel.status==1?StringManager.agreed.tr():StringManager.rejected.tr()),
+            Container(
+              padding: EdgeInsets.symmetric(horizontal: 9.w, vertical: 4.h),
+              decoration: BoxDecoration(
+                color: (userDataModel.status == 1 ? Colors.green : Colors.red)
+                    .withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(20.r),
+              ),
+              child: TextWidget(
+                userDataModel.status == 1
+                    ? StringManager.agreed.tr()
+                    : StringManager.rejected.tr(),
+                style: context.bodySmall.w600.colorExt(
+                    userDataModel.status == 1 ? Colors.green : Colors.red),
+              ),
+            ),
           ],
         ),
       ),

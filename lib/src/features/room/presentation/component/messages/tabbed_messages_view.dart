@@ -12,8 +12,21 @@ class TabbedMessagesView extends StatefulWidget {
   State<TabbedMessagesView> createState() => _TabbedMessagesViewState();
 }
 
-class _TabbedMessagesViewState extends State<TabbedMessagesView> {
+class _TabbedMessagesViewState extends State<TabbedMessagesView>
+    with SingleTickerProviderStateMixin {
   MessageTabType _selectedTab = MessageTabType.all;
+
+  /// Swipe left hides the comments, swipe right brings them back.
+  /// 0 = shown, 1 = hidden. Remembered for the room the user is in.
+  static String? _hiddenInRoom;
+  late final AnimationController _slide = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 280),
+    value: _hiddenInRoom != null && _hiddenInRoom == _roomId ? 1 : 0,
+  );
+
+  static String get _roomId =>
+      RoomData.instance.roomOrNull?.id?.toString() ?? '';
   final ScrollController _scrollController = ScrollController();
 
   final _rebuildNotifier = ValueNotifier<int>(0);
@@ -41,6 +54,7 @@ class _TabbedMessagesViewState extends State<TabbedMessagesView> {
           .removeListener(_messageListener!);
     }
     _throttleTimer?.cancel();
+    _slide.dispose();
     _scrollController.dispose();
     _rebuildNotifier.dispose();
     super.dispose();
@@ -119,9 +133,31 @@ class _TabbedMessagesViewState extends State<TabbedMessagesView> {
     return false;
   }
 
+  void _onDrag(DragUpdateDetails d, double width) {
+    if (width <= 0) return;
+    // Dragging left (negative dx) hides, dragging right shows.
+    _slide.value = (_slide.value - (d.primaryDelta ?? 0) / width).clamp(0, 1);
+  }
+
+  void _onDragEnd(DragEndDetails d) {
+    final v = d.primaryVelocity ?? 0;
+    final hide = v.abs() > 350 ? v < 0 : _slide.value > 0.4;
+    _setHidden(hide);
+  }
+
+  void _setHidden(bool hide) {
+    _hiddenInRoom = hide ? _roomId : null;
+    if (hide) {
+      _slide.animateTo(1, curve: Curves.easeOutCubic);
+    } else {
+      _slide.animateBack(0, curve: Curves.easeOutCubic);
+      _autoScrollToEnd();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final content = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         15.hBox,
@@ -136,6 +172,56 @@ class _TabbedMessagesViewState extends State<TabbedMessagesView> {
           ),
         ),
       ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, box) {
+        final width = box.maxWidth;
+        return AnimatedBuilder(
+          animation: _slide,
+          child: content,
+          builder: (context, child) {
+            final t = _slide.value;
+            final hidden = t >= 0.999;
+            return GestureDetector(
+              // While hidden the empty area itself catches the swipe back.
+              behavior:
+                  hidden ? HitTestBehavior.opaque : HitTestBehavior.translucent,
+              onHorizontalDragUpdate: (d) => _onDrag(d, width),
+              onHorizontalDragEnd: _onDragEnd,
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      ignoring: hidden,
+                      child: Opacity(
+                        opacity: (1 - t).clamp(0.0, 1.0),
+                        child: Transform.translate(
+                          offset: Offset(-width * t, 0),
+                          child: child,
+                        ),
+                      ),
+                    ),
+                  ),
+                  if (t > 0.01)
+                    Positioned(
+                      // Clear of the left-edge swipe-to-minimize strip.
+                      left: 26.w,
+                      top: box.maxHeight / 2 - 26.h,
+                      child: Opacity(
+                        opacity: t.clamp(0.0, 1.0),
+                        child: _ShowCommentsHandle(
+                          onTap: () => _setHidden(false),
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
     );
   }
 
@@ -313,4 +399,36 @@ Widget _buildDefaultMessageBody({
       ],
     ),
   );
+}
+/// Small pill shown while the comments are hidden; a tap (or a swipe right
+/// anywhere in the area) brings them back.
+class _ShowCommentsHandle extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _ShowCommentsHandle({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 30.w,
+        height: 52.h,
+        decoration: BoxDecoration(
+          color: Colors.black.withValues(alpha: 0.35),
+          borderRadius: BorderRadius.circular(16.r),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.25)),
+        ),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.chat_bubble_outline_rounded,
+                color: Colors.white, size: 14.sp),
+            2.hBox,
+            Icon(Icons.chevron_right_rounded, color: Colors.white, size: 18.sp),
+          ],
+        ),
+      ),
+    );
+  }
 }

@@ -201,38 +201,42 @@ class _MeTabBarBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Align(
-      alignment: AlignmentDirectional.topStart,
-      child: Padding(
-        padding: context.paddingSymmetric(horizontal: 15),
-        child: TabBar(
-          controller: controller,
-          dividerHeight: 0.0,
-          physics: const AlwaysScrollableScrollPhysics(),
-          indicator: MDIndicator(
-            // Fixed brand gradient (was the panel-driven lightBlack), on
-            // request -- MDIndicator already supports a gradient fill.
-            indicatorGradient: ColorManager.brandGradient,
-            indicatorWidth: 17.w,
-            indicatorHeight: 4.h,
-            radius: 20,
+    // Same look as the Home tab bar: left-aligned, #F8284D selected,
+    // black unselected, bold; a little gap above.
+    return Padding(
+      padding: EdgeInsets.only(top: 14.h),
+      child: Row(
+        children: [
+          16.wBox,
+          Expanded(
+            child: TabBar(
+              controller: controller,
+              isScrollable: true,
+              tabAlignment: TabAlignment.start,
+              dividerHeight: 0.0,
+              overlayColor: WidgetStateColor.transparent,
+              indicatorSize: TabBarIndicatorSize.label,
+              indicator: MDIndicator(
+                indicatorColor: const Color(0xFFF8284D),
+                indicatorWidth: 17.w,
+                indicatorHeight: 4.h,
+                radius: 20,
+              ),
+              labelPadding: context.paddingOnly(end: 14),
+              unselectedLabelStyle: context.bodyLarge.w700
+                  .colorExt(Colors.black)
+                  .size(17),
+              labelStyle: context.bodyLarge.w800
+                  .colorExt(const Color(0xFFF8284D))
+                  .size(19),
+              tabs: [
+                Text(StringManager.friends.tr()),
+                Text(StringManager.following.tr()),
+                Text(StringManager.createRoom.tr()),
+              ],
+            ),
           ),
-          // horizontal removed: with indicatorSize.tab + zero labelPadding, a
-          // short tab narrower than the inset throws "indicatorPadding insets
-          // should be less than Tab Size". The MDIndicator is fixed-width and
-          // centered, so vertical-only is visually identical and crash-safe.
-          indicatorPadding: EdgeInsets.symmetric(vertical: -2.5.h),
-          // Fixed black text (was the panel-driven textPrimary), on request.
-          unselectedLabelStyle: context.bodyLarge.w500
-              .colorExt(Colors.black.withValues(alpha: 0.6)),
-          labelStyle: context.bodyLarge.bold.colorExt(Colors.black),
-          labelPadding: context.paddingZero(),
-          tabs: [
-            Text(StringManager.friends.tr()),
-            Text(StringManager.following.tr()),
-            Text(StringManager.createRoom.tr()),
-          ],
-        ),
+        ],
       ),
     );
   }

@@ -12,11 +12,16 @@ class NewFollowButton extends StatefulWidget {
   final bool initialIsFollow;
   final FollowBloc followBloc;
 
+  /// Round heart button (filled red when following) instead of the image
+  /// tile -- used by the room profile sheet's bottom action row.
+  final bool heartStyle;
+
   const NewFollowButton({
     super.key,
     required this.userData,
     required this.initialIsFollow,
     required this.followBloc,
+    this.heartStyle = false,
   });
 
   @override
@@ -130,7 +135,38 @@ class _NewFollowButtonState extends State<NewFollowButton> {
           }
         }
       },
-      child: ProfileButtomWidget(
+      child: widget.heartStyle
+          ? GestureDetector(
+              onTap: _onFollowTap,
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                width: 46.w,
+                height: 46.w,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: (_isFollowing
+                          ? const Color(0xFFFF3B6B)
+                          : const Color(0xFF9EA0A8))
+                      .withValues(alpha: .12),
+                ),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  transitionBuilder: (c, a) =>
+                      ScaleTransition(scale: a, child: c),
+                  child: Icon(
+                    _isFollowing
+                        ? Icons.favorite_rounded
+                        : Icons.favorite_border_rounded,
+                    key: ValueKey(_isFollowing),
+                    color: _isFollowing
+                        ? const Color(0xFFFF3B6B)
+                        : const Color(0xFF9EA0A8),
+                    size: 26.sp,
+                  ),
+                ),
+              ),
+            )
+          : ProfileButtomWidget(
         context: context,
         title: _isFollowing
             ? StringManager.following.tr()

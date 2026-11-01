@@ -119,59 +119,14 @@ class Theme2LoginPage extends StatelessWidget {
                           hint: StringManager.pleaseInterYourPhone.tr(),
                           controller: state.phoneControllerNew,
                           keyboardType: TextInputType.phone,
-                          prefix: GestureDetector(
-                            onTap: () => _openCountryPicker(context),
-                            child: Container(
-                              padding: EdgeInsets.only(left: 12.w, right: 8.w),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text(
-                                    state.selectedCountry?.flagEmoji ?? '🇸🇦',
-                                    style: TextStyle(fontSize: 18.sp),
-                                  ),
-                                  4.wBox,
-                                  Text(
-                                    '+${state.selectedCountry?.phoneCode ?? '966'}',
-                                    style: TextStyle(
-                                      color: ColorManager.textPrimary,
-                                      fontSize: 14.sp,
-                                      fontWeight: FontWeight.w500,
-                                    ),
-                                  ),
-                                  Icon(
-                                    Icons.keyboard_arrow_down_rounded,
-                                    color: ColorManager.greyText,
-                                    size: 18.sp,
-                                  ),
-                                  8.wBox,
-                                  Container(
-                                    height: 24.h,
-                                    width: 1,
-                                    color: Colors.grey.withValues(alpha: 0.3),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ),
                           onChanged: (value) {
-                            state.isFoundAccount ?? false
-                                ? context.read<LoginBloc>().add(
+                            context.read<LoginBloc>().add(
                                   const UpdateFormValidationEvent(),
-                                )
-                                : context.read<LoginBloc>().add(
-                                  const UpdateFormValidationEventPhoneFound(),
                                 );
                           },
                           validator: (value) {
                             if (value == null || value.isEmpty) {
                               return StringManager.requiredField.tr();
-                            }
-                            if (!Methods().isValidPhoneNumber(
-                              state.selectedCountry?.countryCode ?? "SA",
-                              value,
-                            )) {
-                              return StringManager.phoneValidator.tr();
                             }
                             return null;
                           },
@@ -179,7 +134,7 @@ class Theme2LoginPage extends StatelessWidget {
                         16.hBox,
 
                         // Password field (only visible after phone is verified)
-                        if (state.isFoundAccount ?? false) ...[
+                        ...[
                           _Theme2InputField(
                             hint: StringManager.password.tr(),
                             controller: state.passwordController,
@@ -211,8 +166,7 @@ class Theme2LoginPage extends StatelessWidget {
                           height: 52.h,
                           child: ElevatedButton(
                             onPressed: () {
-                              if (state.isFoundAccount ?? false) {
-                                if (state.isFormValid != false) {
+                              if (state.isFormValid != false) {
                                   context.read<LoginBloc>().add(
                                     LoginWithPhoneEvent(
                                       context: context,
@@ -220,13 +174,6 @@ class Theme2LoginPage extends StatelessWidget {
                                     ),
                                   );
                                 }
-                              } else {
-                                if (state.isFormValidPhoneFound != false) {
-                                  context.read<LoginBloc>().add(
-                                    const CheckPhoneEvent(),
-                                  );
-                                }
-                              }
                             },
                             style: ElevatedButton.styleFrom(
                               backgroundColor: const Color(0xFFE0E0E0),
@@ -248,9 +195,7 @@ class Theme2LoginPage extends StatelessWidget {
                                       ),
                                     )
                                     : Text(
-                                      state.isFoundAccount ?? false
-                                          ? StringManager.login.tr()
-                                          : StringManager.next.tr(),
+                                      StringManager.login.tr(),
                                       style: TextStyle(
                                         fontSize: 16.sp,
                                         fontWeight: FontWeight.w500,

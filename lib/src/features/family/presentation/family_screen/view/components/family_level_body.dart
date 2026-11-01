@@ -35,7 +35,7 @@ part of '../family_screen.dart';
 //               5.wBox,
 //               TextWidget(
 //                 "${showFamilyEntity?.familyLevelEntity?.familyExp ?? 0}/${showFamilyEntity?.familyLevelEntity?.nextExp ?? 0}",
-//                 style: context.bodySmall.w600.size(8).colorExt(ColorManager.textPrimary),
+//                 style: context.bodySmall.w600.size(8).colorExt(ColorManager.momentPostTextColor),
 //               ),
 //             ],
 //           ),
@@ -52,7 +52,7 @@ part of '../family_screen.dart';
 //           8.hBox,
 //           TextWidget(
 //             "${StringManager.nextMonthLevelIs.tr()} ${showFamilyEntity?.familyLevelEntity?.nextName ?? ""}",
-//             style: context.bodyMedium.w400.size(15).colorExt(ColorManager.textPrimary),
+//             style: context.bodyMedium.w400.size(15).colorExt(ColorManager.momentPostTextColor),
 //           ),
 //         ],
 //       ),

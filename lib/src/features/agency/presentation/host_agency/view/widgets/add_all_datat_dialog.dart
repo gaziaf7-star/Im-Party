@@ -59,7 +59,7 @@ class _AddAllDataDialogState extends State<AddAllDataDialog> {
                       },
                       icon: Icon(
                         Icons.close,
-                        color: ColorManager.textPrimary,
+                        color: ColorManager.momentPostTextColor,
                       ),
                     ),
                   ),

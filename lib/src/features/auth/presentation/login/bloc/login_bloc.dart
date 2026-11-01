@@ -104,8 +104,8 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
     emit(state.copyWith(requestState: RequestState.loading));
     final result = await loginUC(
       AuthParameter(
-        phone:
-            "+${state.selectedCountry?.phoneCode}${state.phoneControllerNew.text}",
+        // Phone number exactly as typed — no country code.
+        phone: state.phoneControllerNew.text.trim(),
         password: state.passwordController.text,
         isMulti: false,
       ),
@@ -155,9 +155,8 @@ class LoginBloc extends Bloc<LoginEvent, LoginState> {
 
   void _updateFormValidation(
       UpdateFormValidationEvent event, Emitter<LoginState> emit) {
-    bool isValid = state.phoneControllerNew.text.isNotEmpty &&
-        state.passwordController.text.isNotEmpty &&
-        state.selectedCountry != null;
+    bool isValid = state.phoneControllerNew.text.trim().isNotEmpty &&
+        state.passwordController.text.isNotEmpty;
 
     if (state.isFormValid != isValid) {
       emit(state.copyWith(isFormValid: isValid));

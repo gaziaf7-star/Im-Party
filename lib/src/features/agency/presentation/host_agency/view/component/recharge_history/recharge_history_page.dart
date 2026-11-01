@@ -41,8 +41,9 @@ class _RechargeHistoryPageState extends State<RechargeHistoryPage>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBarWidget(
-        backgroundColor: ColorManager.scaffoldBg,
+        backgroundColor: Colors.white,
         title: StringManager.transactions.tr(),
       ),
       body: Column(

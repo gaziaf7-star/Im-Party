@@ -7,6 +7,7 @@ import 'package:general/src/features/room/data/model/user_in_room_model.dart';
 import 'package:general/src/features/room/presentation/component/room_header/room_information/user_row_widget.dart';
 import 'package:general/src/features/room/presentation/yallow_banner/controller/controller.dart';
 import 'package:general/src/features/room/room.dart';
+import 'package:general/src/features/room/presentation/room_controls/room_controls.dart';
 
 class AudioRoomInRoomMessageInput extends StatefulWidget {
   const AudioRoomInRoomMessageInput({
@@ -478,8 +479,20 @@ class _AudioRoomInRoomMessageInputState extends State<AudioRoomInRoomMessageInpu
     );
   }
 
+  /// Comment Lock: tells the user and returns false when they may not comment.
+  bool _mayComment() {
+    if (RoomControls.instance.canIChat) return true;
+    Methods.showToast(
+      context,
+      message: 'Comments are locked. The host has to allow you to comment.',
+      isError: true,
+    );
+    return false;
+  }
+
   Future<void> _pickAndSendPicture() async {
     if (!widget.enabled) return;
+    if (!_mayComment()) return;
     File? file;
     try {
       final picked = await Methods.pickImageSafely(
@@ -523,6 +536,7 @@ class _AudioRoomInRoomMessageInputState extends State<AudioRoomInRoomMessageInpu
           // branch, where they show the URL rather than nothing.
           'type': 'image',
           'image': url,
+          RoomControls.userCommentKey: '1',
         },
       );
     } catch (error) {
@@ -540,6 +554,7 @@ class _AudioRoomInRoomMessageInputState extends State<AudioRoomInRoomMessageInpu
   void send() {
     String message = textController.text.trim();
     if (message.isNotEmpty) {
+      if (!_mayComment()) return;
       if (YallowBannerController().isYallowBannerEnabled.value) {
         // Re-check the balance here too (not just when the toggle was
         // switched on) -- the coin count can drop in between, and the
@@ -590,6 +605,7 @@ class _AudioRoomInRoomMessageInputState extends State<AudioRoomInRoomMessageInpu
           "senderId": MyDataModel.getInstance().id?.toString() ?? "",
           "senderName": MyDataModel.getInstance().name ?? "",
           'type': 'message',
+          RoomControls.userCommentKey: '1',
         },
       );
       textController.clear();

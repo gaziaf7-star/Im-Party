@@ -36,6 +36,7 @@ class _TempAppState extends State<TempApp> with WidgetsBindingObserver {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _applyEdgeToEdge();
     _connectivityService.init();
     Methods.identifyUserForCrashlytics();
   }
@@ -51,6 +52,20 @@ class _TempAppState extends State<TempApp> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     super.didChangeAppLifecycleState(state);
     AppLifecycleSignal.update(state);
+    // Some ROMs (MIUI) restore an opaque navigation bar after the app was in
+    // the background; re-assert edge-to-edge on every resume.
+    if (state == AppLifecycleState.resumed) _applyEdgeToEdge();
+  }
+
+  /// Draw behind the system navigation bar with a transparent bar, so the
+  /// bottom bar image shows under the phone's back/home buttons.
+  void _applyEdgeToEdge() {
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
+      systemNavigationBarColor: ColorManager.transparent,
+      systemNavigationBarDividerColor: ColorManager.transparent,
+      systemNavigationBarContrastEnforced: false,
+    ));
   }
 
   @override
@@ -81,6 +96,9 @@ class _TempAppState extends State<TempApp> with WidgetsBindingObserver {
                 statusBarBrightness: Brightness.light,
                 statusBarIconBrightness: Brightness.dark,
                 //
+                // Transparent so the bottom nav image shows under the
+                // system back/home buttons (edge-to-edge, see LayoutPage).
+                systemNavigationBarColor: ColorManager.transparent,
                 systemNavigationBarDividerColor: ColorManager.transparent,
                 systemNavigationBarIconBrightness: Brightness.dark,
                 systemStatusBarContrastEnforced: false,

@@ -1,4 +1,5 @@
 import 'package:general/src/core/index.dart';
+import 'package:general/src/features/room/presentation/room_controls/room_controls.dart';
 import 'package:general/src/features/room/room.dart';
 
 import '../room_message_processor.dart';
@@ -74,6 +75,16 @@ class RoomStateMessageHandler {
       case "isCommentsClosed":
         RoomData.instance.isCommentsClosed.value =
             result[messageContent]['value'];
+        break;
+
+      // All Mute / Comment Lock state, and a newcomer asking for it.
+      case RoomControls.messageKey:
+      case RoomControls.queryKey:
+        final content = result[messageContent];
+        if (content is Map) {
+          RoomControls.instance
+              .handleMessage(Map<String, dynamic>.from(content));
+        }
         break;
 
       // Real-time room lock/unlock — flip the header lock badge for everyone.

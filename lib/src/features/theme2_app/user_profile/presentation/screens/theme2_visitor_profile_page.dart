@@ -1,4 +1,5 @@
 import 'package:general/src/core/index.dart';
+import 'package:general/src/features/theme2_app/user_profile/presentation/widgets/theme2_honor_card.dart';
 import 'package:general/src/core/widgets/animated_dialog.dart';
 import 'package:general/src/features/profile/presentation/profile/view/page/user_profile/bloc/add_or_delete_block/add_or_delete_block_bloc.dart';
 import 'package:general/src/features/profile/presentation/profile/view/page/user_profile/bloc/add_or_delete_block/add_or_delete_block_event.dart';
@@ -366,24 +367,15 @@ class _Theme2VisitorProfilePageState extends State<Theme2VisitorProfilePage>
                                 // a null value" crash). MainAxisSize.min
                                 // makes the Row hug its children instead.
                                 mainAxisSize: MainAxisSize.min,
+                                // Bottom-aligned so the pink bars line up.
+                                crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
-                                  for (int i = 0; i < labels.length; i++) ...[
-                                    if (i != 0) 8.wBox,
-                                    SizedBox(
-                                      // Widened on request.
-                                      width: 108.w,
-                                      child: Padding(
-                                        // Bottom margin, on request.
-                                        padding: EdgeInsets.only(bottom: 6.h),
-                                        child: _ProfileTabPill(
-                                          text: labels[i],
-                                          selected: _tabController.index == i,
-                                          onTap: () =>
-                                              _tabController.animateTo(i),
-                                        ),
-                                      ),
+                                  for (int i = 0; i < labels.length; i++)
+                                    _ProfileTabPill(
+                                      text: labels[i],
+                                      selected: _tabController.index == i,
+                                      onTap: () => _tabController.animateTo(i),
                                     ),
-                                  ],
                                 ],
                               );
                             },
@@ -493,14 +485,8 @@ class _Theme2StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
     // below the tab bar instead of a gap above it.
     return Container(
       height: minExtent,
-      // A soft gradient wash instead of flat white, on request.
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [Color(0xFFFDF2FF), Color(0xFFF3F0FF), Color(0xFFEFF7FF)],
-        ),
-      ),
+      // Plain white behind the text tabs (reference design).
+      color: Colors.white,
       padding: EdgeInsets.only(top: isPinned ? _topGap.h : 0),
       child: tabBar,
     );
@@ -511,10 +497,8 @@ class _Theme2StickyTabBarDelegate extends SliverPersistentHeaderDelegate {
       oldDelegate.isPinned != isPinned || oldDelegate.tabBar != tabBar;
 }
 
-/// Same gradient/colors as CpTabPill (the CP page's tab pill), but tuned
-/// separately for this screen on request: no shadow/glow, and a thicker
-/// border. Kept as its own widget instead of adding params to CpTabPill so
-/// the CP page's own tabs (which DO want the glow) are unaffected.
+/// One profile tab: plain text; the selected one is bigger, bold and pink
+/// with a short rounded pink bar under it (reference design).
 class _ProfileTabPill extends StatelessWidget {
   const _ProfileTabPill({
     required this.text,
@@ -526,40 +510,45 @@ class _ProfileTabPill extends StatelessWidget {
   final bool selected;
   final VoidCallback onTap;
 
+  static const _pink = Color(0xFFF4597A);
+  static const _grey = Color(0xFFC3C5CC);
+
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        height: 46.h,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(10),
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: selected
-                ? const [Color(0xFFFF8AC2), Color(0xFFAC55E7)]
-                : const [Color(0xFF4FC3FF), Color(0xFF3556E8)],
-          ),
-          border: Border.all(
-            color: selected
-                ? const Color(0xE6FFD98A)
-                : const Color(0x99FFD98A),
-            width: selected ? 3.4 : 2.8,
-          ),
-        ),
-        child: Text(
-          text,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          style: context.bodySmall
-              .copyWith(fontSize: 14)
-              .colorExt(selected ? Colors.white : Colors.white70)
-              .copyWith(
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w600,
+      behavior: HitTestBehavior.opaque,
+      child: Padding(
+        padding: EdgeInsets.symmetric(horizontal: 14.w),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            AnimatedDefaultTextStyle(
+              duration: const Duration(milliseconds: 200),
+              curve: Curves.easeOut,
+              style: TextStyle(
+                color: selected ? _pink : _grey,
+                fontSize: selected ? 19.sp : 17.sp,
+                fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
               ),
+              child: Text(text, maxLines: 1),
+            ),
+            6.hBox,
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 220),
+              // No overshooting curve here: easeOutBack dipped the width
+              // below 0 while shrinking and crashed ("negative minimum
+              // width") on every tab change.
+              curve: Curves.easeOutCubic,
+              width: selected ? 28.w : 0,
+              height: 6.h,
+              decoration: BoxDecoration(
+                color: _pink,
+                borderRadius: BorderRadius.circular(6.r),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -927,44 +916,14 @@ class _AchievementsTab extends StatelessWidget {
         }
         return GridView.builder(
           padding: EdgeInsets.all(16.r),
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-            // 4 per row and bigger, on request (was 3).
-            crossAxisCount: 4,
-            // Tighter 3px gap, on request (was 6).
-            crossAxisSpacing: 3.w,
-            mainAxisSpacing: 16.h,
-            childAspectRatio: 0.72,
-          ),
+          gridDelegate: theme2HonorGridDelegate(),
           itemCount: badges.length,
           itemBuilder: (context, index) {
             final badge = badges[index];
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Was a filled surfaceCardColor tile -- now transparent (no
-                // background), on request, and the icon itself bigger still.
-                Padding(
-                  padding: EdgeInsets.all(4.r),
-                  child: ImageViewWidget(
-                    url: EndPoints.getImage(badge.image),
-                    height: 80.h,
-                    width: 80.h,
-                    boxFit: BoxFit.contain,
-                  ),
-                ),
-                6.hBox,
-                Text(
-                  badge.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    color: ColorManager.black,
-                    fontSize: 11.sp,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
+            return Theme2HonorCard(
+              image: badge.image,
+              label: badge.name,
+              leadingIcon: Icons.military_tech_rounded,
             );
           },
         );

@@ -75,12 +75,12 @@ class _TabBarViewDataState extends State<TabBarViewData> {
                         width: 20.w,
                         title: Icon(
                           Icons.arrow_right_alt,
-                          color: ColorManager.textPrimary,
+                          color: ColorManager.momentPostTextColor,
                         ),
                         padding: EdgeInsets.zero,
                         paddingButton: EdgeInsets.zero,
-                        backgroundColor: ColorManager.scaffoldBg,
-                        borderColor: ColorManager.textPrimary,
+                        backgroundColor: Colors.white,
+                        borderColor: ColorManager.momentPostTextColor,
                         onPressed: () {
                           _dataGridController.scrollToColumn(
                             6,
@@ -296,22 +296,22 @@ class AgencyDataGridSource extends DataGridSource {
                       color: (user.coloredName ?? '') != ''
                           ? Color((int.parse(
                               user.coloredName!.replaceAll('#', '0xff'))))
-                          : ColorManager.textPrimary,
+                          : ColorManager.momentPostTextColor,
                       mainAxisAlignment: MainAxisAlignment.center,
                       textAlign: TextAlign.center,
                       textStyle: context.bodyMedium.size(12).colorExt(
                             user.coloredName != ""
                                 ? Color((int.parse(
                                     user.coloredName!.replaceAll('#', '0xff'))))
-                                : ColorManager.textPrimary,
+                                : ColorManager.momentPostTextColor,
                           ),
                     ),
                     IdWithCopyIcon(
                       userId: user.uuid ?? "",
                       idStyle: context.bodyMedium.size(12).colorExt(
-                            ColorManager.textPrimary.withValues(alpha: 0.5),
+                            ColorManager.momentPostTextColor.withValues(alpha: 0.5),
                           ),
-                      idColor: ColorManager.textPrimary.withValues(alpha: 0.5),
+                      idColor: ColorManager.momentPostTextColor.withValues(alpha: 0.5),
                       isNeedCopyIcon: false,
                       isSpecial: ((user.idImage ?? '') != ''),
                       specialImg: user.idImage ?? '',
@@ -391,7 +391,7 @@ class _ChartCell extends StatelessWidget {
                 reservedSize: 20,
                 getTitlesWidget: (value, _) => Text(
                   '${(value * 100).toInt()}%',
-                  style: TextStyle(fontSize: 8, color: ColorManager.secondaryText),
+                  style: TextStyle(fontSize: 8, color: ColorManager.grey),
                 ),
               ),
             ),
@@ -401,7 +401,7 @@ class _ChartCell extends StatelessWidget {
                 interval: 1,
                 getTitlesWidget: (value, _) => Text(
                   value.toInt().toString(),
-                  style: TextStyle(fontSize: 8, color: ColorManager.secondaryText),
+                  style: TextStyle(fontSize: 8, color: ColorManager.grey),
                 ),
               ),
             ),

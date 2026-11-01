@@ -2,20 +2,27 @@ import 'package:general/src/core/index.dart';
 
 import 'rocket_realtime_controller.dart';
 
-/// Floating top banner card shown the moment a rocket launches: slides in
-/// from the right, holds at the top for the same 7s as
-/// [RocketLaunchOverlay]'s flight animation, then slides out to the left --
-/// mirroring the Lucky Box banner's slide-in/pause/slide-out shape (see
-/// `show_lucky_banner_widget.dart`), just re-timed to 7s and content swapped
-/// for the rocket image (left) + winner name/countdown (middle) + winner
-/// avatar (right). Purely decorative: hides itself when its own animation
-/// finishes and never touches [RocketRealtimeController.launchEvent] (the
-/// full-screen overlay owns that).
+/// Floating banner card shown while the rocket launch animation plays: it
+/// slides in smoothly from the left to the middle, stays for 9 seconds, then
+/// slides back out to the left -- rocket image (left) + winner name (middle) +
+/// winner avatar (right). Purely decorative: it never touches
+/// [RocketRealtimeController.launchEvent] (the full-screen overlay owns that)
+/// and starts together with the animation ([RocketRealtimeController
+/// .launchAnimating]).
 class RocketLaunchBanner extends StatelessWidget {
   const RocketLaunchBanner({super.key});
 
   @override
   Widget build(BuildContext context) {
+    return ValueListenableBuilder<bool>(
+      valueListenable: RocketRealtimeController.instance.launchAnimating,
+      builder: (context, animating, _) => animating
+          ? _banner(context)
+          : const SizedBox.shrink(),
+    );
+  }
+
+  Widget _banner(BuildContext context) {
     return ValueListenableBuilder<Map<String, dynamic>?>(
       valueListenable: RocketRealtimeController.instance.launchEvent,
       builder: (context, data, _) {
@@ -43,7 +50,9 @@ class RocketLaunchBanner extends StatelessWidget {
             child: _RocketBannerBody(
               key: ValueKey('${data['event_id'] ?? data['launch_id']}'),
               name: (topWinner?['name'] ?? '').toString(),
-              profileImage: (topWinner?['profile_image'] ?? '').toString(),
+              profileImage: RocketRealtimeController.profileUrl(
+                  topWinner?['profile_image'],
+                  label: 'banner winner'),
               rocketImage: rocketImage,
             ),
           ),
@@ -71,9 +80,9 @@ class _RocketBannerBody extends StatefulWidget {
 
 class _RocketBannerBodyState extends State<_RocketBannerBody>
     with SingleTickerProviderStateMixin {
-  // Matches RocketLaunchOverlay's `_flightDuration` so the banner's slide and
-  // the full-screen flight countdown start and end together.
-  static const _totalDuration = Duration(seconds: 7);
+  // 0.6s slide in + 9s hold + 0.4s slide out, matching the ~10s launch
+  // animation so both start and end together.
+  static const _totalDuration = Duration(seconds: 10);
 
   late final AnimationController _controller;
   late final Animation<Offset> _slide;
@@ -84,19 +93,19 @@ class _RocketBannerBodyState extends State<_RocketBannerBody>
     _controller = AnimationController(vsync: this, duration: _totalDuration)
       ..forward();
     _slide = TweenSequence<Offset>([
-      // Slide in from off-screen right.
+      // Slide in from off-screen left to the middle.
       TweenSequenceItem(
-        tween: Tween<Offset>(begin: const Offset(1.4, 0), end: Offset.zero)
+        tween: Tween<Offset>(begin: const Offset(-1.4, 0), end: Offset.zero)
             .chain(CurveTween(curve: Curves.easeOutCubic)),
-        weight: 12,
+        weight: 6,
       ),
-      // Hold in place at the top.
-      TweenSequenceItem(tween: ConstantTween<Offset>(Offset.zero), weight: 76),
-      // Slide out to off-screen left.
+      // Hold in the middle for 9 seconds.
+      TweenSequenceItem(tween: ConstantTween<Offset>(Offset.zero), weight: 90),
+      // Slide back out to the left.
       TweenSequenceItem(
         tween: Tween<Offset>(begin: Offset.zero, end: const Offset(-1.4, 0))
             .chain(CurveTween(curve: Curves.easeInCubic)),
-        weight: 12,
+        weight: 4,
       ),
     ]).animate(_controller);
   }
@@ -114,17 +123,15 @@ class _RocketBannerBodyState extends State<_RocketBannerBody>
       animation: _controller,
       builder: (context, child) {
         if (_controller.isCompleted) return const SizedBox.shrink();
-        final secondsLeft =
-        (7 * (1 - _controller.value)).ceil().clamp(0, 7);
         return SlideTransition(
           position: _slide,
-          child: _bannerContent(context, screenWidth, secondsLeft),
+          child: _bannerContent(context, screenWidth),
         );
       },
     );
   }
 
-  Widget _bannerContent(BuildContext context, double screenWidth, int secondsLeft) {
+  Widget _bannerContent(BuildContext context, double screenWidth) {
     // Narrower floating card (not edge-to-edge) and taller than the first
     // pass, matching a typical game-win/lucky-box banner card proportions
     // instead of a stretched full-width strip.
@@ -151,60 +158,95 @@ class _RocketBannerBodyState extends State<_RocketBannerBody>
             fit: StackFit.expand,
             children: [
               CacheSvgaWidget(
-                url: AssetsManager.newGamesBannerSVGA,
+                url: AssetsManager.giftBanner1,
                 isAsset: true,
                 width: bannerWidth,
                 height: bannerHeight.h,
                 boxFit: BoxFit.cover,
               ),
-              Padding(
-                // Shift all banner foreground content slightly downward so the
-                // rocket, text and profile sit visually centered under the
-                // crown/top glow of the SVGA banner.
-                padding: EdgeInsets.fromLTRB(14.w, 18.h, 14.w, 6.h),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    if (widget.rocketImage.isNotEmpty)
-                      ImageViewWidget(
-                        url: widget.rocketImage,
-                        height: 54.h,
-                        width: 54.h,
-                        boxFit: BoxFit.contain,
-                      ),
-                    10.wBox,
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          TextWidget(
-                            widget.name,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: context.bodyMedium.w800
-                                .colorExt(ColorManager.white),
+              // Responsive content: every size is a fraction of the banner, so
+              // it scales with the card. The green plate of the SVGA sits
+              // below the crown/wings, so the content starts ~30% down and
+              // keeps clear of the left/right wing ornaments.
+              LayoutBuilder(
+                builder: (context, c) {
+                  final w = c.maxWidth;
+                  final h = c.maxHeight;
+                  // Small picture + rocket so everything stays inside the green
+                  // plate (the plate starts ~30% down).
+                  final contentH = h * 0.34;
+                  final rocketH = h * 0.46;
+                  return Padding(
+                    padding: EdgeInsets.fromLTRB(w * 0.17, h * 0.32, w * 0.17, h * 0.12),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        // Winner picture on the left.
+                        // Hard size box + clip: it can never spill out of the card.
+                        // Nudged down a little inside the plate.
+                        Transform.translate(
+                          offset: Offset(0, h * 0.05),
+                          child: SizedBox(
+                            width: contentH,
+                            height: contentH,
+                            child: ClipOval(
+                              child: UserImage(
+                                image: widget.profileImage,
+                                displayName: widget.name,
+                                imageSize: contentH,
+                                uniquId: widget.name,
+                              ),
+                            ),
                           ),
-                          2.hBox,
-                          TextWidget(
-                            'Launching in ${secondsLeft}s',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: context.bodySmall.w600.colorExt(
-                                ColorManager.white.withValues(alpha: 0.85)),
+                        ),
+                        SizedBox(width: w * 0.03),
+                        // Name on top, caption under it.
+                        Expanded(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              // Name at the top of the plate, a bit lower than
+                              // the very edge.
+                              SizedBox(height: h * 0.09),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: TextWidget(
+                                  widget.name,
+                                  maxLines: 1,
+                                  style: context.bodyMedium.w800
+                                      .colorExt(ColorManager.white),
+                                ),
+                              ),
+                              SizedBox(height: h * 0.005),
+                              FittedBox(
+                                fit: BoxFit.scaleDown,
+                                alignment: Alignment.centerLeft,
+                                child: TextWidget(
+                                  'Rocket launched',
+                                  maxLines: 1,
+                                  style: context.bodySmall.w600.colorExt(
+                                      ColorManager.white
+                                          .withValues(alpha: 0.85)),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
+                        ),
+                        SizedBox(width: w * 0.03),
+                        // Rocket on the right.
+                        if (widget.rocketImage.isNotEmpty)
+                          ImageViewWidget(
+                            url: widget.rocketImage,
+                            height: rocketH,
+                            width: rocketH,
+                            boxFit: BoxFit.contain,
+                          ),
+                      ],
                     ),
-                    8.wBox,
-                    UserImage(
-                      image: widget.profileImage,
-                      displayName: widget.name,
-                      imageSize: 42.w,
-                      uniquId: widget.name,
-                    ),
-                  ],
-                ),
+                  );
+                },
               ),
             ],
           ),

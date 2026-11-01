@@ -18,6 +18,9 @@ class LevelEntity extends Equatable {
   final String? receiverImage;
   final String? expSender;
   final String? expReceiver;
+  // Lifetime totals of gift coins sent / received (profile stats).
+  final String? totalSent;
+  final String? totalReceived;
   final int? currentReceiver;
   final int? currentSender;
 
@@ -41,6 +44,8 @@ class LevelEntity extends Equatable {
     this.receiverImage,
     this.expSender,
     this.expReceiver,
+    this.totalSent,
+    this.totalReceived,
   });
 
   @override
@@ -64,5 +69,7 @@ class LevelEntity extends Equatable {
         expReceiver,
         currentSender,
         currentReceiver,
+        totalSent,
+        totalReceived,
       ];
 }

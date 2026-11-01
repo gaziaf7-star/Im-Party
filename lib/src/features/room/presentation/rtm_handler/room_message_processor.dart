@@ -5,8 +5,11 @@ import 'dart:developer';
 
 import 'package:general/src/core/index.dart';
 import 'package:general/src/features/room/presentation/charisma/bloc/charisma_bloc.dart';
+import 'package:general/src/features/room/presentation/room_controls/room_controls.dart';
 import 'package:general/src/features/room/room.dart';
 
+import '../component/rocket/rocket_realtime_controller.dart';
+import '../component/room_support/room_support_realtime_controller.dart';
 import 'handlers/game_message_handler.dart';
 import 'handlers/gift_message_handler.dart';
 import 'handlers/media_message_handler.dart';
@@ -15,14 +18,7 @@ import 'handlers/room_state_message_handler.dart';
 import 'handlers/user_message_handler.dart';
 
 /// Message categories for routing to the correct handler.
-enum MessageCategory {
-  gift,
-  roomState,
-  user,
-  pk,
-  media,
-  game,
-}
+enum MessageCategory { gift, roomState, user, pk, media, game }
 
 /// A parsed RTM message with its category pre-determined.
 class CategorizedMessage {
@@ -73,14 +69,8 @@ class RoomMessageProcessor {
       giftController: giftController,
       userModelId: userModelId,
     );
-    _roomStateHandler = RoomStateMessageHandler(
-      isHost: isHost,
-      roomId: roomId,
-    );
-    _userHandler = UserMessageHandler(
-      userModelId: userModelId,
-      roomId: roomId,
-    );
+    _roomStateHandler = RoomStateMessageHandler(isHost: isHost, roomId: roomId);
+    _userHandler = UserMessageHandler(userModelId: userModelId, roomId: roomId);
     _pkHandler = PkMessageHandler(tickerProvider: tickerProvider);
     _mediaHandler = const MediaMessageHandler();
     _gameHandler = const GameMessageHandler();
@@ -196,11 +186,13 @@ class RoomMessageProcessor {
         if (content == null) continue;
 
         final msg = content[message];
+        if (msg == null && _routeActionEvent(content)) continue;
         if (msg == null) {
           // A payload reached us with a messageContent map but no 'message'
           // key — almost always a double-wrapped send site. Log instead of
           // dropping silently so the mismatch is diagnosable.
-          if (kDebugMode) log("Dropped data message — no 'message' key: $content");
+          if (kDebugMode)
+            log("Dropped data message — no 'message' key: $content");
           continue;
         }
 
@@ -259,6 +251,8 @@ class RoomMessageProcessor {
       case "updateAdmins":
       case "LRC":
       case "isCommentsClosed":
+      case RoomControls.messageKey:
+      case RoomControls.queryKey:
       case "roomPassword":
       case "lock_seat":
       case "banRoom":
@@ -384,9 +378,8 @@ class RoomMessageProcessor {
     map.forEach((rid, value) {
       final userId = int.tryParse('$rid') ?? 0;
       if (userId <= 0) return;
-      final total = (value is num)
-          ? value.toInt()
-          : int.tryParse('${value ?? ''}') ?? 0;
+      final total =
+          (value is num) ? value.toInt() : int.tryParse('${value ?? ''}') ?? 0;
       if (total < 0) return;
       updates.add(
         CharismaModel(
@@ -405,9 +398,10 @@ class RoomMessageProcessor {
     final receiverIds = content['receiver_id'];
     if (receiverIds is! List || receiverIds.isEmpty) return;
 
-    final giftValue = (content['userGiftTP'] is num)
-        ? (content['userGiftTP'] as num).toInt()
-        : int.tryParse('${content['userGiftTP'] ?? ''}') ?? 0;
+    final giftValue =
+        (content['userGiftTP'] is num)
+            ? (content['userGiftTP'] as num).toInt()
+            : int.tryParse('${content['userGiftTP'] ?? ''}') ?? 0;
     if (giftValue <= 0) return;
 
     final bloc = di<CharismaBloc>();
@@ -464,6 +458,30 @@ class RoomMessageProcessor {
     _batchTimer?.cancel();
     _batchTimer = null;
     _queue.clear();
+  }
+
+  /// The backend also pushes rocket / room-support events on the room data
+  /// channel (frames with `action_type` and no `message`). This is the only
+  /// path that reaches EVERY viewer in the room (the personal Centrifugo
+  /// channel only reaches some users), so route them to their controllers.
+  /// The controllers filter by room id and de-duplicate launches, so arriving
+  /// on both paths is safe.
+  bool _routeActionEvent(Map<String, dynamic> content) {
+    final inner = content['data'];
+    final payload =
+        inner is Map && inner['action_type'] != null
+            ? Map<String, dynamic>.from(inner)
+            : content;
+    final action = payload['action_type']?.toString() ?? '';
+    if (action.startsWith('rocket_')) {
+      RocketRealtimeController.instance.handleEvent(payload);
+      return true;
+    }
+    if (action == 'room_support_updated') {
+      RoomSupportRealtimeController.instance.handleEvent(payload);
+      return true;
+    }
+    return false;
   }
 }
 

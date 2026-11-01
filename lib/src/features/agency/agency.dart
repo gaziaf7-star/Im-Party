@@ -122,3 +122,4 @@ export 'package:general/src/features/agency/presentation/host_agency/bloc/get_go
 export 'package:general/src/features/agency/presentation/host_agency/view/widgets/tab_bar_view_datas.dart';
 export 'package:general/src/features/agency/presentation/host_agency/view/widgets/user_row_dates.dart';
 export 'package:general/src/features/agency/presentation/search_agency_screen/bloc/manger_join_to_agency/join_to_agency_bloc.dart';
+export 'package:general/src/features/agency/presentation/host_agency/view/widgets/agency_ui.dart';

@@ -568,7 +568,16 @@ class FetchUserDataBloc extends Bloc<BaseGetMyDataEvent, FetchUserDataState> {
           break;
         case 'live.stream.event':
           debugPrint('[ProfileRT] live.stream.event payload=${event.payload}');
-          UserProfileRealtimeController.instance.handleEvent(event.payload);
+          // The backend also sends rocket_* / room_support_updated under this
+          // envelope name; route them by their own action_type.
+          final liveAction = _extractActionType(event.payload);
+          if (liveAction != null && liveAction.startsWith('rocket_')) {
+            RocketRealtimeController.instance.handleEvent(event.payload);
+          } else if (liveAction == 'room_support_updated') {
+            RoomSupportRealtimeController.instance.handleEvent(event.payload);
+          } else {
+            UserProfileRealtimeController.instance.handleEvent(event.payload);
+          }
           break;
       }
     });

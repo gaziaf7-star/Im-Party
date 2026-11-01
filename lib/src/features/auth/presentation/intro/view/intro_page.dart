@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:general/src/core/index.dart';
-import 'package:general/src/core/widgets/update_dialog.dart';
+import 'package:general/src/core/widgets/app_update_prompt.dart';
 import 'package:general/src/features/auth/presentation/auth_platform/bloc/auth_platform_bloc.dart';
 import 'package:general/src/features/auth/presentation/splash/config_app/config_app_bloc.dart';
 import 'package:general/src/features/setting/setting.dart';
@@ -30,6 +30,12 @@ class _IntroPageState extends State<IntroPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        AppUpdatePrompt.showIfNeeded(context, di<ConfigAppBloc>().state);
+      }
+    });
+
 
     if (widget.error != null && (widget.error ?? '').isNotEmpty) {
       Future.delayed(
@@ -53,27 +59,8 @@ class _IntroPageState extends State<IntroPage> {
   Widget build(BuildContext context) {
     return BlocListener<ConfigAppBloc, ConfigAppState>(
       bloc: di<ConfigAppBloc>(),
-      listener: (context, state) {
-        if (state.requestState.isLoaded &&
-            state.config?.isLastVersion != true) {
-          showDialog(
-            context: context,
-            barrierDismissible: !(state.config?.isForce ?? false),
-            barrierColor: Colors.black.withValues(alpha: 0.5),
-            builder: (_) => PopScope(
-              canPop: false,
-              onPopInvoked: (_) {},
-              child: ForceUpdateDialog(
-                description: StringManager.updatDesc.tr(),
-                isOptionalUpdate: !(state.config?.isForce ?? false),
-                onConfirm: () {
-                  Methods.openUrl(ConstantsManager.appURL);
-                },
-              ),
-            ),
-          );
-        }
-      },
+      listener: (context, state) =>
+          AppUpdatePrompt.showIfNeeded(context, state),
       child: Scaffold(
         backgroundColor: Colors.white,
         body: Stack(
@@ -106,273 +93,247 @@ class _IntroPageState extends State<IntroPage> {
               ),
             ),
             SafeArea(
-          child: LayoutBuilder(
-            builder: (context, constraints) {
-              final screenWidth = constraints.maxWidth;
-              final screenHeight = constraints.maxHeight;
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final screenWidth = constraints.maxWidth;
+                  final screenHeight = constraints.maxHeight;
 
-              final horizontalPadding =
-              (screenWidth * 0.075).clamp(22.0, 44.0);
-              final heroTopGap =
-              (screenHeight * 0.125).clamp(68.0, 135.0);
-              final logoSize = (screenWidth * 0.28).clamp(96.0, 140.0);
-              final heroBottomGap =
-              (screenHeight * 0.072).clamp(38.0, 68.0);
-              final buttonHeight =
-              (screenHeight * 0.062).clamp(48.0, 55.0);
-              final buttonGap =
-              (screenHeight * 0.016).clamp(10.0, 16.0);
+                  final horizontalPadding =
+                  (screenWidth * 0.075).clamp(22.0, 44.0);
+                  final heroTopGap =
+                  (screenHeight * 0.125).clamp(68.0, 135.0);
+                  final logoSize = (screenWidth * 0.28).clamp(96.0, 140.0);
+                  final heroBottomGap =
+                  (screenHeight * 0.072).clamp(38.0, 68.0);
+                  final buttonHeight =
+                  (screenHeight * 0.062).clamp(48.0, 55.0);
+                  final buttonGap =
+                  (screenHeight * 0.016).clamp(10.0, 16.0);
 
-              return SingleChildScrollView(
-                physics: const BouncingScrollPhysics(),
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(minHeight: screenHeight),
-                  child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: horizontalPadding,
-                    ),
-                    child: Column(
-                      children: [
-                        const SizedBox(height: 14),
-
-                        Align(
-                          alignment: AlignmentDirectional.topEnd,
-                          child: _languageButton(context),
+                  return SingleChildScrollView(
+                    physics: const BouncingScrollPhysics(),
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: screenHeight),
+                      child: Padding(
+                        padding: EdgeInsets.symmetric(
+                          horizontal: horizontalPadding,
                         ),
+                        child: Column(
+                          children: [
+                            const SizedBox(height: 14),
 
-                        SizedBox(height: heroTopGap),
+                            Align(
+                              alignment: AlignmentDirectional.topEnd,
+                              child: _languageButton(context),
+                            ),
 
-                        Image.asset(
-                          AssetsManager.logo,
-                          width: logoSize,
-                          height: logoSize,
-                          fit: BoxFit.contain,
-                        ),
+                            SizedBox(height: heroTopGap),
 
-                        SizedBox(height: heroBottomGap),
+                            Image.asset(
+                              AssetsManager.logo,
+                              width: logoSize,
+                              height: logoSize,
+                              fit: BoxFit.contain,
+                            ),
 
-                        BlocBuilder<AuthPlatformBloc, AuthPlatformState>(
-                          bloc: di<AuthPlatformBloc>(),
-                          buildWhen: (prev, curr) =>
-                          prev.requestStateGoogle !=
-                              curr.requestStateGoogle,
-                          builder: (context, state) {
-                            return _referenceButton(
-                              iconAsset: AssetsManager.google_,
-                              label: StringManager.signInWithGoogle.tr(),
-                              height: buttonHeight,
-                              iconSize: 28,
-                              gradient: _googleGradient,
-                              shadowColor: const Color(0xFF5204C6),
-                              enabled: _isAgreementAccepted,
-                              isLoading: state.requestStateGoogle.isLoading,
-                              onTap: () {
-                                di<AuthPlatformBloc>().add(
-                                  SignInGoogleEvent(
-                                    context: context,
-                                    isAddAccount: false,
-                                  ),
+                            SizedBox(height: heroBottomGap),
+
+                            BlocBuilder<AuthPlatformBloc, AuthPlatformState>(
+                              bloc: di<AuthPlatformBloc>(),
+                              buildWhen: (prev, curr) =>
+                              prev.requestStateGoogle !=
+                                  curr.requestStateGoogle,
+                              builder: (context, state) {
+                                return _referenceButton(
+                                  iconAsset: AssetsManager.google_,
+                                  label: StringManager.signInWithGoogle.tr(),
+                                  height: buttonHeight,
+                                  iconSize: 28,
+                                  gradient: _googleGradient,
+                                  shadowColor: const Color(0xFF5204C6),
+                                  enabled: _isAgreementAccepted,
+                                  isLoading: state.requestStateGoogle.isLoading,
+                                  onTap: () {
+                                    di<AuthPlatformBloc>().add(
+                                      SignInGoogleEvent(
+                                        context: context,
+                                        isAddAccount: false,
+                                      ),
+                                    );
+                                  },
                                 );
                               },
-                            );
-                          },
-                        ),
+                            ),
 
-                        if (ConstantsManager.devicePlatform ==
-                            StringManager.huawei) ...[
-                          SizedBox(height: buttonGap),
-                          BlocBuilder<AuthPlatformBloc, AuthPlatformState>(
-                            bloc: di<AuthPlatformBloc>(),
-                            buildWhen: (prev, curr) =>
-                            prev.requestStateHuawei !=
-                                curr.requestStateHuawei,
-                            builder: (context, state) {
-                              return _referenceButton(
-                                iconAsset: AssetsManager.huawei,
-                                label: StringManager.signInWithHuawei.tr(),
-                                height: buttonHeight,
-                                iconSize: 28,
-                                gradient: _huaweiGradient,
-                                shadowColor: const Color(0xFF2A6DFF),
-                                enabled: _isAgreementAccepted,
-                                isLoading: state.requestStateHuawei.isLoading,
-                                onTap: () {
-                                  di<AuthPlatformBloc>().add(
-                                    SignInHuaweiEvent(context: context),
+                            if (ConstantsManager.devicePlatform ==
+                                StringManager.huawei) ...[
+                              SizedBox(height: buttonGap),
+                              BlocBuilder<AuthPlatformBloc, AuthPlatformState>(
+                                bloc: di<AuthPlatformBloc>(),
+                                buildWhen: (prev, curr) =>
+                                prev.requestStateHuawei !=
+                                    curr.requestStateHuawei,
+                                builder: (context, state) {
+                                  return _referenceButton(
+                                    iconAsset: AssetsManager.huawei,
+                                    label: StringManager.signInWithHuawei.tr(),
+                                    height: buttonHeight,
+                                    iconSize: 28,
+                                    gradient: _huaweiGradient,
+                                    shadowColor: const Color(0xFF2A6DFF),
+                                    enabled: _isAgreementAccepted,
+                                    isLoading: state.requestStateHuawei.isLoading,
+                                    onTap: () {
+                                      di<AuthPlatformBloc>().add(
+                                        SignInHuaweiEvent(context: context),
+                                      );
+                                    },
                                   );
                                 },
-                              );
-                            },
-                          ),
-                        ],
-
-                        if (Platform.isIOS) ...[
-                          SizedBox(height: buttonGap),
-                          BlocBuilder<AuthPlatformBloc, AuthPlatformState>(
-                            bloc: di<AuthPlatformBloc>(),
-                            buildWhen: (prev, curr) =>
-                            prev.requestStateApple !=
-                                curr.requestStateApple,
-                            builder: (context, state) {
-                              return _referenceButton(
-                                iconAsset: AssetsManager.apple,
-                                label: StringManager.signInWithApple.tr(),
-                                height: buttonHeight,
-                                iconSize: 27,
-                                gradient: _appleGradient,
-                                shadowColor: const Color(0xFF0D0D0F),
-                                enabled: _isAgreementAccepted,
-                                isLoading: state.requestStateApple.isLoading,
-                                onTap: () {
-                                  di<AuthPlatformBloc>().add(
-                                    SignInAppleEvent(context: context),
-                                  );
-                                },
-                              );
-                            },
-                          ),
-                        ],
-
-                        SizedBox(height: buttonGap),
-
-                        BlocBuilder<AuthPlatformBloc, AuthPlatformState>(
-                          bloc: di<AuthPlatformBloc>(),
-                          buildWhen: (prev, curr) =>
-                          prev.requestStateGuest !=
-                              curr.requestStateGuest,
-                          builder: (context, state) {
-                            return _referenceButton(
-                              iconAsset: AssetsManager.userProfileIcon,
-                              label: StringManager.quickLogin.tr(),
-                              height: buttonHeight,
-                              iconSize: 27,
-                              gradient: _guestGradient,
-                              shadowColor: const Color(0xFFDB1FA0),
-                              enabled: _isAgreementAccepted,
-                              isLoading: state.requestStateGuest.isLoading,
-                              onTap: () {
-                                di<AuthPlatformBloc>().add(
-                                  SignInGuestEvent(context: context),
-                                );
-                              },
-                            );
-                          },
-                        ),
-
-                        SizedBox(
-                          height: (screenHeight * 0.030).clamp(18.0, 28.0),
-                        ),
-
-                        AnimatedOpacity(
-                          duration: const Duration(milliseconds: 180),
-                          opacity: _isAgreementAccepted ? 1.0 : 0.52,
-                          child: SizedBox(
-                            width: double.infinity,
-                            height: buttonHeight,
-                            child: Material(
-                              color: Colors.transparent,
-                              borderRadius: BorderRadius.circular(
-                                buttonHeight / 2,
                               ),
-                              child: InkWell(
-                                onTap: () {
-                                  if (!_isAgreementAccepted) {
-                                    _showAgreementRequired();
-                                    return;
-                                  }
-                                  context.pushNamedRoute(Routes.login);
+                            ],
+
+                            if (Platform.isIOS) ...[
+                              SizedBox(height: buttonGap),
+                              BlocBuilder<AuthPlatformBloc, AuthPlatformState>(
+                                bloc: di<AuthPlatformBloc>(),
+                                buildWhen: (prev, curr) =>
+                                prev.requestStateApple !=
+                                    curr.requestStateApple,
+                                builder: (context, state) {
+                                  return _referenceButton(
+                                    iconAsset: AssetsManager.apple,
+                                    label: StringManager.signInWithApple.tr(),
+                                    height: buttonHeight,
+                                    iconSize: 27,
+                                    gradient: _appleGradient,
+                                    shadowColor: const Color(0xFF0D0D0F),
+                                    enabled: _isAgreementAccepted,
+                                    isLoading: state.requestStateApple.isLoading,
+                                    onTap: () {
+                                      di<AuthPlatformBloc>().add(
+                                        SignInAppleEvent(context: context),
+                                      );
+                                    },
+                                  );
                                 },
-                                borderRadius: BorderRadius.circular(
-                                  buttonHeight / 2,
-                                ),
-                                child: Ink(
-                                  decoration: BoxDecoration(
-                                    // Its own warm gradient (was flat black),
-                                    // distinct from every button above, so the
-                                    // final CTA still stands out as the
-                                    // primary action in the multi-gradient set.
-                                    gradient: _phoneGradient,
+                              ),
+                            ],
+
+                            SizedBox(
+                              height: (screenHeight * 0.030).clamp(18.0, 28.0),
+                            ),
+
+                            AnimatedOpacity(
+                              duration: const Duration(milliseconds: 180),
+                              opacity: _isAgreementAccepted ? 1.0 : 0.52,
+                              child: SizedBox(
+                                width: double.infinity,
+                                height: buttonHeight,
+                                child: Material(
+                                  color: Colors.transparent,
+                                  borderRadius: BorderRadius.circular(
+                                    buttonHeight / 2,
+                                  ),
+                                  child: InkWell(
+                                    onTap: () {
+                                      if (!_isAgreementAccepted) {
+                                        _showAgreementRequired();
+                                        return;
+                                      }
+                                      context.pushNamedRoute(Routes.login);
+                                    },
                                     borderRadius: BorderRadius.circular(
                                       buttonHeight / 2,
                                     ),
-                                    boxShadow: const [
-                                      BoxShadow(
-                                        color: Color(0x52FF5B7A),
-                                        blurRadius: 16,
-                                        offset: Offset(0, 6),
-                                      ),
-                                    ],
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      SizedBox(width: 18.w),
-                                      Container(
-                                        width: 34.w,
-                                        height: 34.w,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white.withValues(
-                                            alpha: 0.12,
+                                    child: Ink(
+                                      decoration: BoxDecoration(
+                                        // Its own warm gradient (was flat black),
+                                        // distinct from every button above, so the
+                                        // final CTA still stands out as the
+                                        // primary action in the multi-gradient set.
+                                        gradient: _phoneGradient,
+                                        borderRadius: BorderRadius.circular(
+                                          buttonHeight / 2,
+                                        ),
+                                        boxShadow: const [
+                                          BoxShadow(
+                                            color: Color(0x52FF5B7A),
+                                            blurRadius: 16,
+                                            offset: Offset(0, 6),
                                           ),
-                                          shape: BoxShape.circle,
-                                        ),
-                                        child: Icon(
-                                          Icons.phone_rounded,
-                                          color: Colors.white,
-                                          size: 18.h,
-                                        ),
+                                        ],
                                       ),
-                                      Expanded(
-                                        child: Center(
-                                          child: Text(
-                                            'Login with Phone',
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: TextStyle(
+                                      child: Row(
+                                        children: [
+                                          SizedBox(width: 18.w),
+                                          Container(
+                                            width: 34.w,
+                                            height: 34.w,
+                                            decoration: BoxDecoration(
+                                              color: Colors.white.withValues(
+                                                alpha: 0.12,
+                                              ),
+                                              shape: BoxShape.circle,
+                                            ),
+                                            child: Icon(
+                                              Icons.phone_rounded,
                                               color: Colors.white,
-                                              fontSize: 15.5.sp,
-                                              fontWeight: FontWeight.w700,
+                                              size: 18.h,
                                             ),
                                           ),
-                                        ),
+                                          Expanded(
+                                            child: Center(
+                                              child: Text(
+                                                'Login with Phone',
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 15.5.sp,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                          SizedBox(
+                                            width: 34.w,
+                                            child: Icon(
+                                              Icons.arrow_forward_rounded,
+                                              color: Colors.white,
+                                              size: 19.h,
+                                            ),
+                                          ),
+                                          SizedBox(width: 14.w),
+                                        ],
                                       ),
-                                      SizedBox(
-                                        width: 34.w,
-                                        child: Icon(
-                                          Icons.arrow_forward_rounded,
-                                          color: Colors.white,
-                                          size: 19.h,
-                                        ),
-                                      ),
-                                      SizedBox(width: 14.w),
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
+
+                            SizedBox(
+                              height: (screenHeight * 0.030).clamp(18.0, 28.0),
+                            ),
+
+                            // Terms/agreement now sits at the very bottom of the
+                            // page (was between the sign-in buttons and the
+                            // phone-login CTA), below every button.
+                            _agreementCard(context),
+
+                            const SizedBox(height: 24),
+                          ],
                         ),
-
-                        SizedBox(
-                          height: (screenHeight * 0.030).clamp(18.0, 28.0),
-                        ),
-
-                        // Terms/agreement now sits at the very bottom of the
-                        // page (was between the sign-in buttons and the
-                        // phone-login CTA), below every button.
-                        _agreementCard(context),
-
-                        const SizedBox(height: 24),
-                      ],
+                      ),
                     ),
-                  ),
-                ),
-              );
-            },
-          ),
-        ),
-            ],
+                  );
+                },
+              ),
             ),
-          ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -592,9 +553,6 @@ class _IntroPageState extends State<IntroPage> {
   static const _appleGradient = LinearGradient(
     colors: [Color(0xFF3A3A3C), Color(0xFF0D0D0F)],
   );
-  static const _guestGradient = LinearGradient(
-    colors: [Color(0xFFFF4FA3), Color(0xFFDB1FA0)],
-  );
   static const _phoneGradient = LinearGradient(
     colors: [Color(0xFFFFA53E), Color(0xFFFF5B7A)],
   );
@@ -641,12 +599,12 @@ class _IntroPageState extends State<IntroPage> {
                 borderRadius: BorderRadius.circular(height / 2),
                 boxShadow: canUse
                     ? [
-                        BoxShadow(
-                          color: shadowColor.withValues(alpha: 0.30),
-                          blurRadius: 16,
-                          offset: const Offset(0, 6),
-                        ),
-                      ]
+                  BoxShadow(
+                    color: shadowColor.withValues(alpha: 0.30),
+                    blurRadius: 16,
+                    offset: const Offset(0, 6),
+                  ),
+                ]
                     : null,
               ),
               child: Row(

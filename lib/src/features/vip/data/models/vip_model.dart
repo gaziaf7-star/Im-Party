@@ -8,6 +8,7 @@ class VipCenterModel extends VipCenterEntity {
     super.level,
     super.name,
     super.img1,
+    super.oldImage,
     super.isBuy,
     super.isUsed,
     super.price,
@@ -22,6 +23,8 @@ class VipCenterModel extends VipCenterEntity {
       level: parseValue<int>(jsonData['level'], 0),
       name: parseValue<String>(jsonData['name'], ''),
       img1: parseValue<String>(jsonData['img'], ''),
+      // Still picture of the badge (the animated one is `img`).
+      oldImage: parseValue<String>(jsonData['img_old'], ''),
       price: parseValue<int>(jsonData['price'], 0),
       expire: parseValue<int>(jsonData['expire'], 0),
       targetId: parseValue<int>(jsonData['target_id'], 0),

@@ -6,10 +6,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.res.Configuration
 import android.net.Uri
+import android.graphics.Color
 import android.os.Build
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.WindowManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
@@ -21,6 +24,7 @@ class MainActivity : FlutterActivity() {
     private val BACKGROUND_SERVICE_CHANNEL = "background_service"
     private val ROOM_SERVICE_CHANNEL = "room_service_channel"
     private val PIP_STATE_CHANNEL = "pip_state_channel"
+    private val VOICE_FX_CHANNEL = "miva/voice_fx"
     // 🔵 File Picker Channel
     private val FILE_PICKER_CHANNEL = "file_picker_channel"
     private val PICK_FILE_REQUEST = 1001
@@ -28,6 +32,22 @@ class MainActivity : FlutterActivity() {
 
     private val executor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // Transparent system navigation bar with no contrast scrim, so the
+        // app's bottom bar image shows under the phone's back/home buttons.
+        window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS)
+        window.clearFlags(WindowManager.LayoutParams.FLAG_TRANSLUCENT_NAVIGATION)
+        window.navigationBarColor = Color.TRANSPARENT
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            window.isNavigationBarContrastEnforced = false
+        }
+        // Let Flutter draw behind the navigation bar (edge-to-edge).
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+            window.setDecorFitsSystemWindows(false)
+        }
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -144,6 +164,26 @@ class MainActivity : FlutterActivity() {
                     startActivityForResult(Intent.createChooser(intent, "Select Image"), PICK_FILE_REQUEST)
                 } else {
                     result.notImplemented()
+                }
+            }
+
+        // ===============================
+        // 🎤 Voice FX (room Mixer: music effect / EQ / voice changer)
+        // ===============================
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, VOICE_FX_CHANNEL)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "set" -> {
+                        VoiceFxProcessor.configure(
+                            music = call.argument<Int>("music") ?: 0,
+                            eq = call.argument<Int>("eq") ?: 0,
+                            voice = call.argument<Int>("voice") ?: 0,
+                        )
+                        // false until the room's WebRTC engine exists; Dart
+                        // retries after joining.
+                        result.success(VoiceFxProcessor.attach())
+                    }
+                    else -> result.notImplemented()
                 }
             }
     }

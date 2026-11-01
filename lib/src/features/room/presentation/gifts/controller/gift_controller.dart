@@ -186,10 +186,26 @@ class GiftController {
 
   // ─── User entry animation ─────────────────────────────────────────────
 
+  /// Last time each user's entry was queued. The same entry used to play
+  /// twice on joining a room (the local trigger plus a duplicate path), so a
+  /// user's entry is accepted at most once per [_entryDedupeWindow].
+  static final Map<String, DateTime> _recentEntries = {};
+  static const Duration _entryDedupeWindow = Duration(seconds: 10);
+
   userEntro(
       Map<String, dynamic> result,
       Map<String, dynamic> userIntroData,
       ) async {
+    final entryUserId = '${result[messageContent]?['userId'] ?? ''}';
+    if (entryUserId.isNotEmpty) {
+      final now = DateTime.now();
+      final last = _recentEntries[entryUserId];
+      if (last != null && now.difference(last) < _entryDedupeWindow) {
+        Methods.printLog('🚪 [Entry] duplicate entry for $entryUserId skipped');
+        return;
+      }
+      _recentEntries[entryUserId] = now;
+    }
     WabblesModel? wabble = Methods().getUserWabble(
       result[messageContent]['wabbleId'],
     );

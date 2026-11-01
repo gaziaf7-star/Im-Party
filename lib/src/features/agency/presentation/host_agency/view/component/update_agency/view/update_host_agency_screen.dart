@@ -28,10 +28,10 @@ class _UpdateHostAgencyScreenState extends State<UpdateHostAgencyScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: ColorManager.scaffoldBg,
+      backgroundColor: Colors.white,
       appBar: AppBarWidget(
         title: StringManager.updateAgency,
-        backgroundColor: ColorManager.scaffoldBg,
+        backgroundColor: Colors.white,
       ),
       body: Padding(
         padding: context.paddingAll(16),
@@ -100,7 +100,7 @@ class _UpdateHostAgencyScreenState extends State<UpdateHostAgencyScreen> {
                 Text(
                   StringManager.agencyAddInfo.tr(),
                   style: context.bodySmall.w600
-                      .colorExt(ColorManager.secondaryText),
+                      .colorExt(ColorManager.grey),
                 ),
                 40.hBox, //
                 TextInputWidget(

@@ -67,6 +67,8 @@ class FFLFBody extends StatelessWidget {
       children: [
         FFLFInfoBody(
           textColor: textColor,
+          countFontSize: countFontSize,
+          labelFontSize: labelFontSize,
           isMyProfile: myProfile,
           count: '${data?.numberOfFollowings ?? "0"}',
           title: StringManager.following.tr(),
@@ -81,6 +83,8 @@ class FFLFBody extends StatelessWidget {
         ),
         FFLFInfoBody(
           textColor: textColor,
+          countFontSize: countFontSize,
+          labelFontSize: labelFontSize,
           isMyProfile: myProfile,
           count: '${data?.numberOfFans ?? "0"}',
           title: StringManager.followers.tr(),
@@ -95,6 +99,8 @@ class FFLFBody extends StatelessWidget {
         ),
         FFLFInfoBody(
           textColor: textColor,
+          countFontSize: countFontSize,
+          labelFontSize: labelFontSize,
           isMyProfile: myProfile,
           count: '${data?.numberOfFriends ?? "0"}',
           title: StringManager.friends.tr(),

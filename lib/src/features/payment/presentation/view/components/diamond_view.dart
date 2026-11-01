@@ -40,7 +40,7 @@ class _DiamondViewState extends State<DiamondView>
       padding: context.paddingSymmetric(horizontal: 10),
       child: Column(
         children: [
-          110.hBox,
+          14.hBox,
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

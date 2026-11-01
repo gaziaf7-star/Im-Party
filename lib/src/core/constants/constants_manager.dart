@@ -58,12 +58,12 @@ class ConstantsManager {
   /// الـ versionCode الفعلي للبناء — بيتقري أوتوماتيك في main() من PackageInfo.buildNumber.
   /// ده اللي بيتبعت للسيرفر لفحص التحديث الإجباري، فيمنع أي لخبطة بين رقم الكود ورقم البناء.
   /// default = الـ versionCode الحالي كـ fallback آمن لو القراءة فشلت.
-  static int appVersionCode = 20;
+  static int appVersionCode = 25;
 
   /// الـ versionName الفعلي للبناء (مثل "1.0.17") — بيتقري أوتوماتيك في main() من PackageInfo.version.
   /// بيتبعت للسيرفر كـ version_name للعرض في الأدمن فقط؛ المقارنة الداخلية تظل بالـ appVersionCode.
   /// default = الـ versionName الحالي كـ fallback آمن لو القراءة فشلت.
-  static String appVersionName = "1.0.18";
+  static String appVersionName = "1.0.24";
 
   /// اسم التطبيق المعروض — بيتقري أوتوماتيك في main() من PackageInfo.appName
   /// (المصدر native: android:label / CFBundleDisplayName). يُستخدم كعنوان شاشة

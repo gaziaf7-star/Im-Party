@@ -105,7 +105,7 @@ class UserSettings extends StatelessWidget {
     return IconButton(
       icon: Icon(
         Icons.more_horiz,
-        color: ColorManager.textPrimary,
+        color: ColorManager.momentPostTextColor,
       ),
       onPressed: () {
         _showPopupMenu(context);
@@ -118,9 +118,17 @@ class UserSettings extends StatelessWidget {
       context: context,
       builder: (context) {
         return AlertDialog(
+          backgroundColor: Colors.white,
+          surfaceTintColor: Colors.white,
+          titleTextStyle: TextStyle(
+            color: ColorManager.black,
+            fontSize: 17.sp,
+            fontWeight: FontWeight.w700,
+          ),
+          contentTextStyle: const TextStyle(color: ColorManager.black),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
-            side: const BorderSide(color: ColorManager.black),
+            side: const BorderSide(color: Color(0xFFE6E7EB)),
           ),
           title: const Text('User Options'),
           content: Column(

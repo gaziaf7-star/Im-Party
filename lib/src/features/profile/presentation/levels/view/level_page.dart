@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+
+import 'package:flutter_animate/flutter_animate.dart';
 import 'package:general/src/core/index.dart';
 import 'package:general/src/features/profile/presentation/coins/bloc/my_store_bloc/my_store_bloc.dart';
 import 'package:general/src/features/room/presentation/gifts/gift.dart';
@@ -17,6 +20,7 @@ part 'components/charge_view.dart';
 part 'components/room_view.dart';
 part 'widgets/level_item.dart';
 part 'components/level_card.dart';
+part 'components/level_gallery.dart';
 part 'widgets/sender_level.dart';
 part 'widgets/reciver_level.dart';
 
@@ -61,47 +65,111 @@ class _LevelPageState extends State<LevelPage> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    final normalPage = BlocBuilder<LevelBloc, AllLevelsState>(
-      bloc: di<LevelBloc>(),
-      buildWhen: (prev, curr) =>
-      prev.levelsBadgesRequest != curr.levelsBadgesRequest ||
-          prev.levelsBadges != curr.levelsBadges,
-      builder: (context, state) {
-        return Scaffold(
-          backgroundColor: ColorManager.white,
-          appBar: AppBarWidget(
-            title: StringManager.myLevel.tr(),
-            iconColor: ColorManager.black,
-            backgroundColor: ColorManager.white,
-            titleStyle: context.bodyLarge.bold.colorExt(ColorManager.black),
-          ),
-          body: Column(
-            children: [
-              LevelTabBar(controller: _controller),
-              Flexible(
-                child: HandlingDataWidget(
-                  titleStyle:
-                  context.bodyLarge.colorExt(ColorManager.black),
-                  reqState: state.levelsBadgesRequest,
-                  title: StringManager.noLevels.tr(),
-                  subTitle: StringManager.noLevelsMsg.tr(),
-                  onTap: () {
-                    di<LevelBloc>().add(const GetLevelsBadges(type: 1));
-                    di<LevelBloc>().add(GetUserLevels());
-                  },
-                  child: LevelTabBarView(
-                    controller: _controller,
-                    senderBadges: state.levelsBadges?.sender ?? [],
-                    reciverBadges: state.levelsBadges?.reciver ?? [],
-                    chargeBadges: state.levelsBadges?.charge ?? [],
+    return Scaffold(
+      backgroundColor: _LevelGalleryColors.skyBottom,
+      extendBodyBehindAppBar: true,
+      appBar: AppBarWidget(
+        title: StringManager.myLevel.tr(),
+        iconColor: Colors.white,
+        backgroundColor: Colors.transparent,
+        shadow: Colors.transparent,
+        titleStyle: context.bodyLarge.bold.size(18).colorExt(Colors.white),
+      ),
+      body: Stack(
+        children: [
+          const Positioned.fill(child: _StarrySky()),
+          SafeArea(
+            bottom: false,
+            child: Column(
+              children: [
+                SizedBox(height: kToolbarHeight - 6.h),
+                _LevelTypeTabs(controller: _controller),
+                Expanded(
+                  child: BlocBuilder<LevelBloc, AllLevelsState>(
+                    bloc: di<LevelBloc>(),
+                    buildWhen: (prev, curr) =>
+                        prev.levelsBadgesRequest != curr.levelsBadgesRequest ||
+                        prev.levelsBadges != curr.levelsBadges ||
+                        prev.userLevels != curr.userLevels ||
+                        prev.userLevelsRequest != curr.userLevelsRequest,
+                    builder: (context, state) {
+                      return HandlingDataWidget(
+                        titleStyle: context.bodyLarge.colorExt(Colors.white),
+                        reqState: state.levelsBadgesRequest,
+                        title: StringManager.noLevels.tr(),
+                        subTitle: StringManager.noLevelsMsg.tr(),
+                        onTap: () {
+                          di<LevelBloc>().add(const GetLevelsBadges(type: 1));
+                          di<LevelBloc>().add(GetUserLevels());
+                        },
+                        child: TabBarView(
+                          controller: _controller,
+                          children: [
+                            _tab(
+                              state,
+                              type: 'sender',
+                              label: StringManager.wealth.tr(),
+                              badges: state.levelsBadges?.sender ?? [],
+                              title: StringManager.wealthDescription.tr(),
+                              body: StringManager.wealthDescriptionBody.tr(),
+                            ),
+                            _tab(
+                              state,
+                              type: 'reciever',
+                              label: StringManager.charm.tr(),
+                              badges: state.levelsBadges?.reciver ?? [],
+                              title: StringManager.charmDescription.tr(),
+                              body: StringManager.charmDescriptionBody.tr(),
+                            ),
+                            _tab(
+                              state,
+                              type: 'charge',
+                              label: StringManager.charge.tr(),
+                              badges: state.levelsBadges?.charge ?? [],
+                              title: StringManager.chargeDescription.tr(),
+                              body: StringManager.chargeDescriptionBody.tr(),
+                            ),
+                          ],
+                        ),
+                      );
+                    },
                   ),
                 ),
-              )
-            ],
+              ],
+            ),
           ),
-        );
-      },
+        ],
+      ),
     );
-    return normalPage;
+  }
+
+  Widget _tab(
+    AllLevelsState state, {
+    required String type,
+    required String label,
+    required List<LevelBadgesEntity> badges,
+    required String title,
+    required String body,
+  }) {
+    final numbers = _LevelNumbers.of(type, state);
+    return SingleChildScrollView(
+      physics: const BouncingScrollPhysics(),
+      child: Column(
+        children: [
+          18.hBox,
+          _LevelHero(numbers: numbers, label: label)
+              .animate()
+              .fadeIn(duration: const Duration(milliseconds: 380))
+              .slideY(begin: .05, end: 0, curve: Curves.easeOutCubic),
+          22.hBox,
+          _LevelPanel(
+            badges: badges,
+            level: numbers.level,
+            title: title,
+            body: body,
+          ),
+        ],
+      ),
+    );
   }
 }

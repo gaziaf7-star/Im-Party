@@ -48,9 +48,10 @@ class _FamilyMemberPageState extends State<FamilyMemberPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBarWidget(
         title: StringManager.familyMember.tr(),
-        backgroundColor: ColorManager.scaffoldBg,
+        backgroundColor: Colors.white,
       ),
       body: BlocBuilder<FetchUserDataBloc, FetchUserDataState>(
         bloc: di<FetchUserDataBloc>(),

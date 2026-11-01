@@ -36,8 +36,9 @@ class _HerosScreenState extends State<HerosScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       appBar: AppBarWidget(
-        backgroundColor: ColorManager.scaffoldBg,
+        backgroundColor: Colors.white,
         title: StringManager.agencyHeros.tr().toUpperCase(),
       ),
       body: SafeArea(
@@ -74,7 +75,7 @@ class _HerosScreenState extends State<HerosScreen> {
                               child: HerosRowMember(
                                 userStarEntity: state.heros![index],
                               ),
-                            );
+                            ).agencyEntrance(index);
                           },
                         ));
                   },
@@ -114,7 +115,9 @@ class HerosRowMember extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
+      margin: EdgeInsets.symmetric(vertical: 5.h),
       padding: context.paddingAll(10),
+      decoration: AgencyUI.card(),
       child: InkWell(
         onTap: () {
           Methods().userProfileNavigator(
@@ -146,14 +149,14 @@ class HerosRowMember extends StatelessWidget {
                       color: (userStarEntity.coloredName ?? '') != ''
                           ? Color((int.parse(userStarEntity.coloredName!
                               .replaceAll('#', '0xff'))))
-                          : ColorManager.textPrimary,
+                          : ColorManager.momentPostTextColor,
                       mainAxisAlignment: MainAxisAlignment.center,
                       textAlign: TextAlign.center,
                       textStyle: context.bodyMedium.size(14).w600.colorExt(
                             userStarEntity.coloredName != ""
                                 ? Color((int.parse(userStarEntity.coloredName!
                                     .replaceAll('#', '0xff'))))
-                                : ColorManager.textPrimary,
+                                : ColorManager.momentPostTextColor,
                           ),
                     ),
                     10.wBox,
@@ -167,9 +170,9 @@ class HerosRowMember extends StatelessWidget {
                     color: userStarEntity.imageColorEntity?.color,
                     img: userStarEntity.imageColorEntity?.image,
                     mainAxisAlignment: MainAxisAlignment.start,
-                    idColor: ColorManager.secondaryText,
+                    idColor: ColorManager.grey,
                     idStyle: context.bodyMedium.size(11).w500.colorExt(
-                        ColorManager.secondaryText)),
+                        ColorManager.grey)),
               ],
             ),
             const Spacer(),

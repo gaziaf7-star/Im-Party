@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:general/src/core/index.dart';
 import 'package:general/src/features/profile/data/model/wallet_withdraw_models.dart';
 import 'package:general/src/features/profile/presentation/wallet_withdraw/bloc/wallet_withdraw_bloc.dart';
@@ -23,14 +24,6 @@ class _CoinSellerWithdrawRequestsPageState
   void initState() {
     super.initState();
     _bloc = di<WalletWithdrawBloc>()..add(const LoadIncomingWithdrawEvent());
-  }
-
-  String _mask(String value) {
-    if (value.length <= 4) return value;
-    final start = value.substring(0, value.length >= 7 ? 3 : 1);
-    final end = value.substring(value.length - 2);
-    final hidden = List.filled(value.length - start.length - 2, '•').join();
-    return '$start$hidden$end';
   }
 
   String _title(String value) =>
@@ -99,7 +92,6 @@ class _CoinSellerWithdrawRequestsPageState
                     children: [
                       ...state.incoming.map((item) => _RequestCard(
                             item: item,
-                            mask: _mask,
                             title: _title,
                             actions: item.status.toLowerCase() == 'pending'
                                 ? Row(
@@ -155,15 +147,36 @@ class _CoinSellerWithdrawRequestsPageState
 class _RequestCard extends StatelessWidget {
   const _RequestCard({
     required this.item,
-    required this.mask,
     required this.title,
     this.actions,
   });
 
   final WithdrawHistoryItem item;
-  final String Function(String) mask;
   final String Function(String) title;
   final Widget? actions;
+
+  static const Color _ink = Color(0xFF16161A);
+  static const Color _muted = Color(0xFF6B6C74);
+
+  /// "5 minutes ago · 18 Oct 2026, 8:00 PM" from the API's ISO time.
+  String _when() {
+    final t = DateTime.tryParse(item.createdAt)?.toLocal();
+    if (t == null) return item.createdAt;
+    final h = t.hour % 12 == 0 ? 12 : t.hour % 12;
+    final m = t.minute.toString().padLeft(2, '0');
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+    ];
+    final date =
+        '${t.day} ${months[t.month - 1]} ${t.year}, $h:$m ${t.hour < 12 ? 'AM' : 'PM'}';
+    return '${Methods.timeAgo(t)} · $date';
+  }
+
+  void _copy(BuildContext context, String number) {
+    Clipboard.setData(ClipboardData(text: number));
+    Methods.showToast(context, message: 'Number copied');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -173,6 +186,8 @@ class _RequestCard extends StatelessWidget {
         : status.toLowerCase() == 'rejected'
             ? Colors.red
             : Colors.orange;
+    final number = item.methodAccount.trim();
+    final method = item.methodName.trim();
     return Card(
       color: Colors.white,
       elevation: 0,
@@ -192,7 +207,7 @@ class _RequestCard extends StatelessWidget {
                   child: TextWidget(
                     '${item.amount.round()} coins',
                     isTranslate: false,
-                    style: context.bodyLarge.bold.colorExt(Colors.black),
+                    style: context.bodyLarge.bold.colorExt(_ink),
                   ),
                 ),
                 Container(
@@ -204,29 +219,94 @@ class _RequestCard extends StatelessWidget {
                   child: TextWidget(
                     title(status),
                     isTranslate: false,
-                    style: context.bodySmall.copyWith(color: color, fontWeight: FontWeight.w700),
+                    style: context.bodySmall
+                        .copyWith(color: color, fontWeight: FontWeight.w700),
                   ),
                 ),
               ],
             ),
-            8.hBox,
-            TextWidget(
-              [item.methodName, mask(item.methodAccount)].where((e) => e.isNotEmpty).join(' • '),
-              isTranslate: false,
-              style: const TextStyle(color: Colors.black),
+            12.hBox,
+            // Where to send the money: method + full number, copyable.
+            Container(
+              padding: EdgeInsets.fromLTRB(12.w, 10.h, 6.w, 10.h),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5F6F8),
+                borderRadius: BorderRadius.circular(12.r),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    padding:
+                        EdgeInsets.symmetric(horizontal: 8.w, vertical: 4.h),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(8.r),
+                      border: Border.all(color: const Color(0xFFE3E4E8)),
+                    ),
+                    child: Text(
+                      method.isNotEmpty ? method : 'Method —',
+                      style: TextStyle(
+                        color: _ink,
+                        fontSize: 12.sp,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                  10.wBox,
+                  Expanded(
+                    child: SelectableText(
+                      number.isNotEmpty ? number : 'Number not provided',
+                      maxLines: 1,
+                      style: TextStyle(
+                        color: number.isNotEmpty ? _ink : _muted,
+                        fontSize: 15.sp,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.4,
+                      ),
+                    ),
+                  ),
+                  if (number.isNotEmpty)
+                    IconButton(
+                      tooltip: 'Copy',
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () => _copy(context, number),
+                      icon: Icon(Icons.copy_rounded,
+                          size: 20.sp, color: ColorManager.primary),
+                    ),
+                ],
+              ),
             ),
+            10.hBox,
             if (item.user != null)
-              TextWidget(
-                '${item.user!.name} • ID ${item.user!.id}',
-                isTranslate: false,
-                style: context.bodySmall.colorExt(Colors.black),
+              Row(
+                children: [
+                  Icon(Icons.person_outline_rounded, size: 15.sp, color: _muted),
+                  4.wBox,
+                  Expanded(
+                    child: TextWidget(
+                      '${item.user!.name} • ID ${item.user!.displayId}',
+                      isTranslate: false,
+                      style: context.bodySmall.colorExt(_ink),
+                    ),
+                  ),
+                ],
               ),
-            if (item.createdAt.isNotEmpty)
-              TextWidget(
-                item.createdAt,
-                isTranslate: false,
-                style: context.bodySmall.colorExt(Colors.black54),
+            if (item.createdAt.isNotEmpty) ...[
+              4.hBox,
+              Row(
+                children: [
+                  Icon(Icons.schedule_rounded, size: 15.sp, color: _muted),
+                  4.wBox,
+                  Expanded(
+                    child: TextWidget(
+                      _when(),
+                      isTranslate: false,
+                      style: context.bodySmall.colorExt(_muted),
+                    ),
+                  ),
+                ],
               ),
+            ],
             if (actions != null) ...[12.hBox, actions!],
           ],
         ),

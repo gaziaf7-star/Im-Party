@@ -89,7 +89,9 @@ class _FormAuthBody extends StatelessWidget {
               prev.isPassword != curr.isPassword ||
               prev.suffixIcon != curr.suffixIcon,
           builder: (context, state) {
-            final accountFound = state.isFoundAccount == true;
+            // Phone + password in one step: the password field shows right
+            // away and the button logs in (no check-phone "Next" step).
+            const accountFound = true;
             final canContinue =
                 state.isFormValidPhoneFound == true;
             final canLogin = state.isFormValid == true;
@@ -155,90 +157,6 @@ class _FormAuthBody extends StatelessWidget {
                             26.hBox,
 
                             _FieldLabel(
-                              label: StringManager.codeCountry.tr(),
-                            ),
-                            8.hBox,
-                            Material(
-                              color: Colors.transparent,
-                              child: InkWell(
-                                onTap: () =>
-                                    _openCountryPicker(context),
-                                borderRadius:
-                                BorderRadius.circular(16.r),
-                                child: Ink(
-                                  width: double.infinity,
-                                  height: 54.h,
-                                  padding: EdgeInsets.symmetric(
-                                    horizontal: 15.w,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: _fieldBg,
-                                    borderRadius:
-                                    BorderRadius.circular(16.r),
-                                    border: Border.all(
-                                      color: _border,
-                                    ),
-                                  ),
-                                  child: Row(
-                                    children: [
-                                      Container(
-                                        width: 34.w,
-                                        height: 34.w,
-                                        alignment: Alignment.center,
-                                        decoration: BoxDecoration(
-                                          color: Colors.white,
-                                          borderRadius:
-                                          BorderRadius.circular(
-                                            10.r,
-                                          ),
-                                        ),
-                                        child: const Icon(
-                                          Icons.public_rounded,
-                                          color: _black,
-                                          size: 19,
-                                        ),
-                                      ),
-                                      10.wBox,
-                                      Expanded(
-                                        child: TextWidget(
-                                          state.selectedCountry != null
-                                              ? '${state.selectedCountry?.name}  (+${state.selectedCountry?.phoneCode})'
-                                              : StringManager
-                                              .pleaseInputCountryName
-                                              .tr(),
-                                          isTranslate: false,
-                                          maxLines: 1,
-                                          overflow:
-                                          TextOverflow.ellipsis,
-                                          style: context.bodyMedium
-                                              .size(14)
-                                              .w600
-                                              .colorExt(
-                                            state.selectedCountry !=
-                                                null
-                                                ? _black
-                                                : Colors.black
-                                                .withValues(
-                                              alpha: 0.42,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      Icon(
-                                        Icons
-                                            .keyboard_arrow_down_rounded,
-                                        color: Colors.black.withValues(
-                                          alpha: 0.52,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                            18.hBox,
-
-                            _FieldLabel(
                               label: StringManager.phone.tr(),
                             ),
                             8.hBox,
@@ -301,17 +219,6 @@ class _FormAuthBody extends StatelessWidget {
                                     value.isEmpty) {
                                   return StringManager
                                       .requiredField
-                                      .tr();
-                                }
-                                if (!Methods()
-                                    .isValidPhoneNumber(
-                                  state.selectedCountry
-                                      ?.countryCode ??
-                                      "SA",
-                                  value,
-                                )) {
-                                  return StringManager
-                                      .phoneValidator
                                       .tr();
                                 }
                                 return null;

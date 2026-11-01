@@ -113,27 +113,23 @@ class MomentItem extends StatelessWidget {
                                   : ColorManager.momentPostTextColor,
                             )),
                         5.hBox,
-                        Row(
+                        // Level badges are pill-shaped artwork: shown
+                        // whole (they were clipped to circles and cut off).
+                        Wrap(
+                          spacing: 4.w,
+                          crossAxisAlignment: WrapCrossAlignment.center,
                           children: [
-                            if (momentType == MomentType.follow)
-                              Flexible(
-                                child: TextWidget(
-                                  "${StringManager.postBy.tr()} ${Methods.formatDate(moment.creeatedTime, locale: context.locale.languageCode)}",
-                                  style: context.bodyLarge
-                                      .colorExt(ColorManager.greyTextColor)
-                                      .size(12),
-                                ),
-                              ),
                             if (moment.senderImage != "0")
                               LevelContainer(
                                 image: moment.senderImage,
-                                // Requested: this badge image should be circular.
-                                isCircle: true,
+                                width: 54.w,
+                                height: 20.h,
                               ),
                             if (moment.receiverImage != "0")
                               LevelContainer(
                                 image: moment.receiverImage,
-                                isCircle: true,
+                                width: 54.w,
+                                height: 20.h,
                               ),
                             if (moment.vip != 0)
                               VipContainer(
@@ -143,6 +139,17 @@ class MomentItem extends StatelessWidget {
                               ),
                           ],
                         ),
+                        // How long ago the post was made, on every feed.
+                        if (DateTime.tryParse(moment.creeatedTime) != null) ...[
+                          4.hBox,
+                          TextWidget(
+                            Methods.timeAgo(
+                                DateTime.parse(moment.creeatedTime).toLocal()),
+                            style: context.bodyLarge
+                                .colorExt(ColorManager.greyTextColor)
+                                .size(12),
+                          ),
+                        ],
                       ],
                     ),
                   ),
@@ -330,15 +337,6 @@ class MomentItem extends StatelessWidget {
                     ),
                   ),
                 ],
-                if (momentType == MomentType.latest) ...[
-                  10.hBox,
-                  TextWidget(
-                    "${StringManager.publishedOn} ${Methods.formatDate(moment.creeatedTime, locale: context.locale.languageCode)}",
-                    style: context.bodyLarge
-                        .colorExt(ColorManager.greyTextColor)
-                        .size(12),
-                  )
-                ]
               ],
             ),
           ),

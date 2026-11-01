@@ -19,6 +19,23 @@ class ShowEntroWidget extends StatefulWidget {
   static ValueNotifier<Map<String, dynamic>?> showEntro =
       ValueNotifier<Map<String, dynamic>?>(null);
 
+  /// The joining user's picture for the `sender_avatar` slot of an SVIP entry
+  /// animation (null when there is no entry user). Safe to pass to every svga
+  /// gift player: movies without that slot simply ignore it.
+  static Map<String, String>? introAvatarImages() {
+    final image = '${showEntro.value?['user_image_intro'] ?? ''}'.trim();
+    if (image.isEmpty) return null;
+    return {'sender_avatar': image};
+  }
+
+  /// The joining user's name for the name strip of an SVIP entry animation
+  /// (see [applySenderName]); null when there is no entry user.
+  static Map<String, String>? introNameTexts() {
+    final name = '${showEntro.value?['user_name_intro'] ?? ''}'.trim();
+    if (name.isEmpty) return null;
+    return {kSenderNameKey: name};
+  }
+
   @override
   State<ShowEntroWidget> createState() => _ShowEntroWidgetState();
 }
@@ -140,12 +157,25 @@ class _ShowEntroWidgetState extends State<ShowEntroWidget>
       final Map<String, dynamic>? keyMap =
           widget.userIntroData['wappelKeyName'];
 
-      if (keyMap == null || keyMap.isEmpty) {
-        Methods.printLog("⚠️ No key_map provided");
-        return;
+      final Map<String, dynamic> keys = keyMap ?? const {};
+      if (keys.isEmpty) Methods.printLog("⚠️ No key_map provided");
+
+      // The SVIP entry animations name their avatar slot `sender_avatar`; paint
+      // the joining user's picture there even when the wabble's key_map does
+      // not list it (it used to leave the designer's grey placeholder).
+      if ((userImage ?? '').isNotEmpty && !keys.containsKey(kSenderAvatarKey)) {
+        await applySenderAvatar(videoItem, userImage!);
+      }
+      // Likewise the name: when the key_map names no text slot, write it into
+      // the animation's own name strip (`sender_name`, or a known banner).
+      if (!keys.values.contains('text')) {
+        applySenderName(
+          videoItem,
+          '${widget.userIntroData['user_name_intro'] ?? ''}',
+        );
       }
 
-      for (final entry in keyMap.entries) {
+      for (final entry in keys.entries) {
         final String key = entry.key;
         final String type = entry.value;
 

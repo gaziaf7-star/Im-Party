@@ -27,13 +27,10 @@ class _TabBarBody extends StatelessWidget {
 
             dividerHeight: 0,
 
-            // Fixed white here instead of the panel-driven ColorManager.headerColor —
-            // this tab bar now always sits on the fixed purple→lavender
-            // ColorManager.homeBackgroundGradient (see HomePage), so it needs a
-            // colour that stays readable on THAT gradient specifically, not
-            // whatever the admin panel happens to have set for headerColor.
+            // Selected #F8284D / unselected black, bold (owner request): readable on the admin body image
+            // header painted behind this bar.
             indicator: MDIndicator(
-              indicatorColor: ColorManager.homeHeaderTextColor,
+              indicatorColor: const Color(0xFFF8284D),
 
               indicatorWidth: 17.0.w,
 
@@ -44,13 +41,13 @@ class _TabBarBody extends StatelessWidget {
 
             labelPadding: context.paddingOnly(end: 10),
 
-            unselectedLabelStyle: context.bodyLarge.w500
-                .colorExt(ColorManager.homeHeaderTextColorMuted)
+            unselectedLabelStyle: context.bodyLarge.w700
+                .colorExt(Colors.black)
                 .size(18),
 
-            labelStyle: context.bodyLarge.w600
-                .colorExt(ColorManager.homeHeaderTextColor)
-                .size(18),
+            labelStyle: context.bodyLarge.w800
+                .colorExt(const Color(0xFFF8284D))
+                .size(21),
 
             tabs: [
               if (ConstantsManager.isAudioRoomsEnabled)
@@ -62,7 +59,7 @@ class _TabBarBody extends StatelessWidget {
               // Discover now precedes Live (tabs swapped per owner request).
               Text(StringManager.discover.tr()),
 
-              if (ConstantsManager.isShowLive)
+              if (_showLiveTabOnHome)
                 Stack(
                   clipBehavior: Clip.none,
 
@@ -123,8 +120,8 @@ class _TabBarBody extends StatelessWidget {
 
             width: 22.w,
 
-            // Fixed white, same reasoning as the search icon beside it.
-            color: ColorManager.homeHeaderTextColor,
+            // Black, like the tab labels beside it.
+            color: Colors.black,
           ),
         ),
 
@@ -148,10 +145,8 @@ class _TabBarBody extends StatelessWidget {
 
             width: 24.5.w,
 
-            // Same reasoning as the tab labels above: fixed white so it stays
-            // visible on the fixed home-page gradient regardless of the
-            // panel's headerColor.
-            color: ColorManager.homeHeaderTextColor,
+            // Black, like the tab labels beside it.
+            color: Colors.black,
           ),
         ),
       ],

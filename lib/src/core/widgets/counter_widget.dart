@@ -41,8 +41,10 @@ class CounterWidget extends StatelessWidget {
                 child: Text(
                   count,
 
+                  // White on the primary-coloured dot (the panel's text
+                  // colour was dark and unreadable there).
                   style: context.bodySmall
-                      .colorExt(ColorManager.textPrimary)
+                      .colorExt(ColorManager.white)
                       .size(fontSize ?? 12).copyWith(height: 0.0),
                 ),
               ),
